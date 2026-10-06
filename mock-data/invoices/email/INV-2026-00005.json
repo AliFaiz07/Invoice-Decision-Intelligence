@@ -1,0 +1,39 @@
+{
+  "invoiceId": "INV-2026-00005",
+  "invoiceNumber": "TCS/2026/5521",
+  "sourceChannel": "EMAIL_INBOUND",
+  "channelMetadata": {
+    "emailSender": "billing.support@tcs.com",
+    "emailSubject": "Invoice TCS-5521 - S/4HANA Consulting Sep 2026",
+    "emailReceivedAt": "2026-10-03T10:05:00.000Z",
+    "emailMessageId": "<MSG-TCS-5521@tcs.com>",
+    "attachmentName": "TCS_Consulting_Invoice_5521.pdf"
+  },
+  "supplierTaxId": "27AAACT1999A1Z1",
+  "supplierName": "Tata Consultancy Services Ltd",
+  "supplierId": "10001050",
+  "buyerTaxId": "29AABCT1332L1ZV",
+  "buyerCompanyCode": "1010",
+  "invoiceDate": "2026-10-03",
+  "dueDate": "2026-11-02",
+  "currency": "INR",
+  "purchaseOrderReference": "4500012750",
+  "totalNetAmount": 115000,
+  "taxAmount": 20700,
+  "totalGrossAmount": 135700,
+  "lineItems": [
+    {
+      "itemNumber": "00010",
+      "description": "S/4HANA Migration Cloud Architecture Consulting",
+      "materialNumber": "SRV-CLOUD-ARCH",
+      "quantity": 100,
+      "unitOfMeasure": "HR",
+      "unitPrice": 1150,
+      "netAmount": 115000,
+      "taxRate": 18,
+      "taxAmount": 20700
+    }
+  ],
+  "processingStatus": "EXCEPTION_RAISED",
+  "intakeTimestamp": "2026-10-03T10:06:00.000Z"
+}

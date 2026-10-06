@@ -1,0 +1,37 @@
+{
+  "invoiceId": "INV-2026-00010",
+  "invoiceNumber": "APEX/2026/9012",
+  "sourceChannel": "PHYSICAL_SCAN",
+  "channelMetadata": {
+    "scannerLocation": "Plant 1010 Central Receiving Office",
+    "operatorId": "OP-1022",
+    "scanDpi": 300
+  },
+  "supplierTaxId": "27AAACA9999P1Z3",
+  "supplierName": "Apex Facility Management Services",
+  "supplierId": "10009999",
+  "buyerTaxId": "29AABCT1332L1ZV",
+  "buyerCompanyCode": "1010",
+  "invoiceDate": "2026-10-04",
+  "dueDate": "2026-11-03",
+  "currency": "INR",
+  "purchaseOrderReference": "4500012950",
+  "totalNetAmount": 125000,
+  "taxAmount": 22500,
+  "totalGrossAmount": 147500,
+  "lineItems": [
+    {
+      "itemNumber": "00010",
+      "description": "Comprehensive Quarterly HVAC Duct Deep Cleaning — Pune Site",
+      "materialNumber": "SRV-CLNG-PUN",
+      "quantity": 1,
+      "unitOfMeasure": "AU",
+      "unitPrice": 125000,
+      "netAmount": 125000,
+      "taxRate": 18,
+      "taxAmount": 22500
+    }
+  ],
+  "processingStatus": "REJECTED",
+  "intakeTimestamp": "2026-10-04T14:10:00.000Z"
+}

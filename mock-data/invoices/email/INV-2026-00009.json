@@ -1,0 +1,39 @@
+{
+  "invoiceId": "INV-2026-00009",
+  "invoiceNumber": "INFY/2026/4102",
+  "sourceChannel": "EMAIL_INBOUND",
+  "channelMetadata": {
+    "emailSender": "tax.billing@infosys.com",
+    "emailSubject": "Tax Invoice INFY-4102: S/4HANA Integration Consulting Sep 2026",
+    "emailReceivedAt": "2026-10-04T11:20:00.000Z",
+    "emailMessageId": "<MSG-INFY-4102@infosys.com>",
+    "attachmentName": "Invoice_INFY_4102.pdf"
+  },
+  "supplierTaxId": "29AAACI4040R1Z2",
+  "supplierName": "Infosys Limited",
+  "supplierId": "10006200",
+  "buyerTaxId": "29AABCT1332L1ZV",
+  "buyerCompanyCode": "1010",
+  "invoiceDate": "2026-10-04",
+  "dueDate": "2026-11-03",
+  "currency": "INR",
+  "purchaseOrderReference": "4500012920",
+  "totalNetAmount": 450000,
+  "taxAmount": 81000,
+  "totalGrossAmount": 531000,
+  "lineItems": [
+    {
+      "itemNumber": "00010",
+      "description": "S/4HANA Integration Suite Consulting & Testing Services",
+      "materialNumber": "SRV-SAP-INT",
+      "quantity": 150,
+      "unitOfMeasure": "HR",
+      "unitPrice": 3000,
+      "netAmount": 450000,
+      "taxRate": 18,
+      "taxAmount": 81000
+    }
+  ],
+  "processingStatus": "EXCEPTION_RAISED",
+  "intakeTimestamp": "2026-10-04T11:21:00.000Z"
+}

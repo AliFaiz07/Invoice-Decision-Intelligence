@@ -1,0 +1,40 @@
+{
+  "invoiceId": "INV-2026-00007",
+  "invoiceNumber": "AWS/2026/1090",
+  "sourceChannel": "EMAIL_INBOUND",
+  "channelMetadata": {
+    "emailSender": "aws-receivables@amazon.com",
+    "emailSubject": "Duplicate Statement / Tax Invoice AWS/2026/1090",
+    "emailReceivedAt": "2026-10-04T07:11:00.000Z",
+    "emailMessageId": "<MSG-AWS-RESEND-1090@amazon.com>",
+    "attachmentName": "Tax_Invoice_AWS_1090.pdf"
+  },
+  "supplierTaxId": "07AAACA1234M1Z0",
+  "supplierName": "Amazon Web Services India Pvt Ltd",
+  "supplierId": "10005500",
+  "buyerTaxId": "29AABCT1332L1ZV",
+  "buyerCompanyCode": "1010",
+  "invoiceDate": "2026-10-01",
+  "dueDate": "2026-10-31",
+  "currency": "INR",
+  "purchaseOrderReference": "4500012850",
+  "totalNetAmount": 340000,
+  "taxAmount": 61200,
+  "totalGrossAmount": 401200,
+  "lineItems": [
+    {
+      "itemNumber": "00010",
+      "description": "AWS Enterprise Dedicated Cloud Compute Services (Sep 2026)",
+      "materialNumber": "SRV-AWS-CORP",
+      "quantity": 1,
+      "unitOfMeasure": "AU",
+      "unitPrice": 340000,
+      "netAmount": 340000,
+      "taxRate": 18,
+      "taxAmount": 61200
+    }
+  ],
+  "processingStatus": "ON_HOLD",
+  "intakeTimestamp": "2026-10-04T07:12:00.000Z",
+  "isDuplicateSuspect": true
+}

@@ -1,0 +1,37 @@
+{
+  "invoiceId": "INV-MAIL-376612",
+  "invoiceNumber": "TCS/2026/7274",
+  "sourceChannel": "EMAIL_INBOUND",
+  "channelMetadata": {
+    "emailSender": "billing.support@tcs.com",
+    "emailSubject": "Invoice TCS-8748 - S/4HANA Consulting",
+    "emailMessageId": "<MSG-1791262376613@inbound.enterprise.com>",
+    "emailReceivedAt": "2026-10-06T04:52:56.613Z",
+    "attachmentName": "TCS_Consulting_Invoice_6354.pdf"
+  },
+  "supplierTaxId": "27AAACT1999A1Z1",
+  "supplierName": "Tata Consultancy Services Ltd",
+  "buyerTaxId": "29AABCT1332L1ZV",
+  "buyerCompanyCode": "1010",
+  "invoiceDate": "2026-10-06",
+  "dueDate": "2026-11-05",
+  "currency": "INR",
+  "purchaseOrderReference": "4500012750",
+  "totalNetAmount": 115000,
+  "taxAmount": 20700,
+  "totalGrossAmount": 135700,
+  "lineItems": [
+    {
+      "itemNumber": "00010",
+      "description": "Senior SAP S/4HANA Solution Architect (Consulting Hours)",
+      "quantity": 100,
+      "unitOfMeasure": "HR",
+      "unitPrice": 1150,
+      "netAmount": 115000,
+      "taxRate": 18,
+      "taxAmount": 20700
+    }
+  ],
+  "processingStatus": "DATA_EXTRACTED",
+  "intakeTimestamp": "2026-10-06T04:52:56.613Z"
+}

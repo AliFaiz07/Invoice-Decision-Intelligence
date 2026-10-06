@@ -1,0 +1,46 @@
+[
+  {
+    "lotId": "100004510",
+    "materialDocumentNumber": "5000018901",
+    "status": "PASSED",
+    "totalInspectedQuantity": 100,
+    "acceptedQuantity": 100,
+    "rejectedQuantity": 0,
+    "inspectionDecisionDate": "2026-09-28",
+    "inspectorName": "Kavita Nair (QA Plant 1010)",
+    "remarks": "Complies with IS/IEC 60898-1 specifications. All 100 units passed dielectric test."
+  },
+  {
+    "lotId": "100004520",
+    "materialDocumentNumber": "5000018915",
+    "status": "PASSED",
+    "totalInspectedQuantity": 90,
+    "acceptedQuantity": 90,
+    "rejectedQuantity": 0,
+    "inspectionDecisionDate": "2026-09-30",
+    "inspectorName": "Kavita Nair (QA Plant 1010)",
+    "remarks": "90 units inspected and approved. Note: Remaining 10 units of PO pending receipt."
+  },
+  {
+    "lotId": "100004580",
+    "materialDocumentNumber": "5000018945",
+    "status": "REJECTED",
+    "totalInspectedQuantity": 95,
+    "acceptedQuantity": 90,
+    "rejectedQuantity": 5,
+    "inspectionDecisionDate": "2026-10-02",
+    "inspectorName": "Kavita Nair (QA Plant 1010)",
+    "defectReason": "Five (5) HEPA filters failed air seal integrity test. Gaskets crushed during transit. Rejection notification Q109 issued to vendor."
+  },
+  {
+    "lotId": "100004600",
+    "materialDocumentNumber": "5000018960",
+    "status": "PASSED",
+    "totalInspectedQuantity": 20,
+    "acceptedQuantity": 20,
+    "rejectedQuantity": 0,
+    "inspectionDecisionDate": "2026-10-04",
+    "inspectorName": "Vikram Rao (Electrical QA)",
+    "remarks": "All 20 PDUs passed full-load calibration test. Certified for data center installation."
+  }
+]

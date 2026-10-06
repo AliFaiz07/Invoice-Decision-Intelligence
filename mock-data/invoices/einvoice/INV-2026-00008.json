@@ -1,0 +1,38 @@
+{
+  "invoiceId": "INV-2026-00008",
+  "invoiceNumber": "SEI/2026/0892",
+  "sourceChannel": "GOVERNMENT_EINVOICE",
+  "channelMetadata": {
+    "irn": "4f28d8b4e78a6327e4369f8c6501237a6b83f0d2c94178523091abcef5410982",
+    "acknowledgementNumber": "112026009841",
+    "acknowledgementDate": "2026-10-04T05:00:00.000Z",
+    "digitalSignatureValid": true
+  },
+  "supplierTaxId": "27AAACS1234F1Z5",
+  "supplierName": "Schneider Electric India Pvt Ltd",
+  "supplierId": "10002450",
+  "buyerTaxId": "29AABCT1332L1ZV",
+  "buyerCompanyCode": "1010",
+  "invoiceDate": "2026-10-04",
+  "dueDate": "2026-11-03",
+  "currency": "INR",
+  "purchaseOrderReference": "4500012900",
+  "totalNetAmount": 845000,
+  "taxAmount": 152100,
+  "totalGrossAmount": 997100,
+  "lineItems": [
+    {
+      "itemNumber": "00010",
+      "description": "Smart Power Distribution Unit 415V 63A Dual Feed",
+      "materialNumber": "MAT-ELEC-PDU",
+      "quantity": 20,
+      "unitOfMeasure": "EA",
+      "unitPrice": 42250,
+      "netAmount": 845000,
+      "taxRate": 18,
+      "taxAmount": 152100
+    }
+  ],
+  "processingStatus": "PENDING_BUSINESS_VALIDATION",
+  "intakeTimestamp": "2026-10-04T05:15:00.000Z"
+}

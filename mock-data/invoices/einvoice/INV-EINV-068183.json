@@ -1,0 +1,36 @@
+{
+  "invoiceId": "INV-EINV-068183",
+  "invoiceNumber": "SEI/EINV/9330",
+  "sourceChannel": "GOVERNMENT_EINVOICE",
+  "channelMetadata": {
+    "irn": "08031040ca2c65509befe02dda14f4e3754f5677cd6fe4eb1b3a30af8861ccfd",
+    "acknowledgementNumber": "907692844474",
+    "acknowledgementDate": "2026-10-06",
+    "digitalSignatureValid": true
+  },
+  "supplierTaxId": "27AAACS1234F1Z5",
+  "supplierName": "Schneider Electric India Pvt Ltd",
+  "buyerTaxId": "29AABCT1332L1ZV",
+  "buyerCompanyCode": "1010",
+  "invoiceDate": "2026-10-06",
+  "dueDate": "2026-11-20",
+  "currency": "INR",
+  "purchaseOrderReference": "4500012900",
+  "totalNetAmount": 845000,
+  "taxAmount": 152100,
+  "totalGrossAmount": 997100,
+  "lineItems": [
+    {
+      "itemNumber": "00010",
+      "description": "PLC Programmable Logic Controller Modicon M580",
+      "quantity": 10,
+      "unitOfMeasure": "EA",
+      "unitPrice": 84500,
+      "netAmount": 845000,
+      "taxRate": 18,
+      "taxAmount": 152100
+    }
+  ],
+  "processingStatus": "PENDING_BUSINESS_VALIDATION",
+  "intakeTimestamp": "2026-10-06T05:21:08.183Z"
+}

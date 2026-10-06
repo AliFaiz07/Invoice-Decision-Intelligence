@@ -1,0 +1,38 @@
+{
+  "invoiceId": "INV-2026-00004",
+  "invoiceNumber": "APEX/2026/8812",
+  "sourceChannel": "EMAIL_INBOUND",
+  "channelMetadata": {
+    "emailSender": "invoices@apex-facility.com",
+    "emailSubject": "Invoice APEX-8812 for Facilities Maintenance (Ref PO 4500012600)",
+    "emailReceivedAt": "2026-10-02T14:45:10.000Z",
+    "emailMessageId": "<MSG-APEX-8812@apex-facility.com>",
+    "attachmentName": "Invoice_8812.pdf"
+  },
+  "supplierTaxId": "27AAACA9999P1Z3",
+  "supplierName": "Apex Facility Management Services",
+  "supplierId": "10009999",
+  "buyerTaxId": "29AABCT1332L1ZV",
+  "buyerCompanyCode": "1010",
+  "invoiceDate": "2026-10-02",
+  "dueDate": "2026-11-01",
+  "currency": "INR",
+  "purchaseOrderReference": "4500012600",
+  "totalNetAmount": 85000,
+  "taxAmount": 15300,
+  "totalGrossAmount": 100300,
+  "lineItems": [
+    {
+      "itemNumber": "00010",
+      "description": "Modular Switchboard Distribution Panels",
+      "quantity": 10,
+      "unitOfMeasure": "EA",
+      "unitPrice": 8500,
+      "netAmount": 85000,
+      "taxRate": 18,
+      "taxAmount": 15300
+    }
+  ],
+  "processingStatus": "ON_HOLD",
+  "intakeTimestamp": "2026-10-02T14:46:00.000Z"
+}

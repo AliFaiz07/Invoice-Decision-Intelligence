@@ -1,0 +1,37 @@
+{
+  "invoiceId": "INV-2026-00006",
+  "invoiceNumber": "WIP/2026/7710",
+  "sourceChannel": "PHYSICAL_SCAN",
+  "channelMetadata": {
+    "scannerLocation": "Plant 1010 Warehouse Receiving Dock B",
+    "operatorId": "OP-3011",
+    "scanDpi": 300
+  },
+  "supplierTaxId": "29AAACW4455Q1Z8",
+  "supplierName": "Wipro Enterprises Ltd",
+  "supplierId": "10002100",
+  "buyerTaxId": "29AABCT1332L1ZV",
+  "buyerCompanyCode": "1010",
+  "invoiceDate": "2026-10-03",
+  "dueDate": "2026-11-02",
+  "currency": "INR",
+  "purchaseOrderReference": "4500012800",
+  "totalNetAmount": 250000,
+  "taxAmount": 45000,
+  "totalGrossAmount": 295000,
+  "lineItems": [
+    {
+      "itemNumber": "00010",
+      "description": "Industrial HEPA Air Intake Filters Class H13",
+      "materialNumber": "MAT-FLTR-IND",
+      "quantity": 100,
+      "unitOfMeasure": "EA",
+      "unitPrice": 2500,
+      "netAmount": 250000,
+      "taxRate": 18,
+      "taxAmount": 45000
+    }
+  ],
+  "processingStatus": "ON_HOLD",
+  "intakeTimestamp": "2026-10-03T13:20:00.000Z"
+}

@@ -1,0 +1,43 @@
+{
+  "invoiceId": "INV-2026-00003",
+  "invoiceNumber": "AIRTEL/2026/9981",
+  "sourceChannel": "EMAIL_INBOUND",
+  "channelMetadata": {
+    "emailSender": "corporate.ebilling@airtel.in",
+    "emailSubject": "Tax Invoice: Dedicated Leased Line Internet Oct 2026 - A/C 990142",
+    "emailReceivedAt": "2026-10-02T08:14:22.000Z",
+    "emailMessageId": "<MSG-AIRTEL-20261002-9981@corp.airtel.in>",
+    "attachmentName": "Airtel_Invoice_Oct2026_990142.pdf"
+  },
+  "supplierTaxId": "07AAACB0001A1Z9",
+  "supplierName": "Bharti Airtel Enterprise Services",
+  "supplierId": "10004580",
+  "buyerTaxId": "29AABCT1332L1ZV",
+  "buyerCompanyCode": "1010",
+  "invoiceDate": "2026-10-02",
+  "dueDate": "2026-10-17",
+  "currency": "INR",
+  "totalNetAmount": 75000,
+  "taxAmount": 13500,
+  "totalGrossAmount": 88500,
+  "lineItems": [
+    {
+      "itemNumber": "00010",
+      "description": "Monthly Dedicated 1 Gbps Internet Leased Line - HQ Bangalore",
+      "quantity": 1,
+      "unitOfMeasure": "AU",
+      "unitPrice": 75000,
+      "netAmount": 75000,
+      "taxRate": 18,
+      "taxAmount": 13500
+    }
+  ],
+  "processingStatus": "NON_PO_ROUTED",
+  "intakeTimestamp": "2026-10-02T08:15:00.000Z",
+  "nonPOAccountAssignment": {
+    "costCenter": "CC-1020-IT",
+    "glAccount": "65001000",
+    "businessOwnerId": "RJOSHI",
+    "approverName": "Rohan Joshi"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "name": "sap-invoice-decision-intelligence",
+  "version": "1.0.0",
+  "description": "SAP Invoice Decision Intelligence Layer on SAP BTP and S/4HANA",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc && xcopy /E /I /Y src\\public dist\\public",
+    "start": "node dist/server.js",
+    "dev": "ts-node src/server.ts",
+    "test": "node --test dist/tests/**/*.test.js",
+    "test:ts": "ts-node src/tests/run-all-tests.ts"
+  },
+  "keywords": [
+    "sap",
+    "btp",
+    "s4hana",
+    "fiori",
+    "invoice-verification",
+    "three-way-matching",
+    "decision-intelligence",
+    "ai"
+  ],
+  "author": "Enterprise Architecture Team",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.2"
+  }
+}

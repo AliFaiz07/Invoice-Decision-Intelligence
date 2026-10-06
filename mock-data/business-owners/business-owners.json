@@ -1,0 +1,34 @@
+[
+  {
+    "userId": "AVERMA",
+    "name": "Amit Verma",
+    "email": "averma@enterprise.com",
+    "department": "Facilities & Plant Operations",
+    "costCenter": "CC-1010-ENG",
+    "role": "Plant Requisitioner"
+  },
+  {
+    "userId": "SMEHTA",
+    "name": "Sanjay Mehta",
+    "email": "smehta@enterprise.com",
+    "department": "Automation & Controls",
+    "costCenter": "CC-1010-ENG",
+    "role": "Lead Systems Engineer"
+  },
+  {
+    "userId": "RJOSHI",
+    "name": "Rohan Joshi",
+    "email": "rjoshi@enterprise.com",
+    "department": "Enterprise Cloud Architecture",
+    "costCenter": "CC-1020-IT",
+    "role": "Cloud Architect"
+  },
+  {
+    "userId": "BO_AARAV",
+    "name": "Aarav Mehta",
+    "email": "aarav.mehta@demo.company",
+    "department": "Corporate Services",
+    "costCenter": "CC-1000-EXEC",
+    "role": "Business Owner"
+  }
+]

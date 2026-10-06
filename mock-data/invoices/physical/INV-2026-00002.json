@@ -1,0 +1,37 @@
+{
+  "invoiceId": "INV-2026-00002",
+  "invoiceNumber": "SIE/2026/0452",
+  "sourceChannel": "PHYSICAL_SCAN",
+  "channelMetadata": {
+    "scannerLocation": "Plant 1010 Central Receiving Office",
+    "operatorId": "OP-1022",
+    "scanDpi": 300
+  },
+  "supplierTaxId": "27AAACS9876E1Z2",
+  "supplierName": "Siemens India Ltd",
+  "supplierId": "10003120",
+  "buyerTaxId": "29AABCT1332L1ZV",
+  "buyerCompanyCode": "1010",
+  "invoiceDate": "2026-10-01",
+  "dueDate": "2026-11-15",
+  "currency": "INR",
+  "purchaseOrderReference": "4500012500",
+  "totalNetAmount": 120000,
+  "taxAmount": 21600,
+  "totalGrossAmount": 141600,
+  "lineItems": [
+    {
+      "itemNumber": "00010",
+      "description": "PLC Digital Input Module 24V DC",
+      "materialNumber": "MAT-SIEM-CTRL",
+      "quantity": 100,
+      "unitOfMeasure": "EA",
+      "unitPrice": 1200,
+      "netAmount": 120000,
+      "taxRate": 18,
+      "taxAmount": 21600
+    }
+  ],
+  "processingStatus": "EXCEPTION_RAISED",
+  "intakeTimestamp": "2026-10-01T11:30:00.000Z"
+}

@@ -1,0 +1,198 @@
+[
+  {
+    "materialDocumentNumber": "5000018901",
+    "fiscalYear": "2026",
+    "postingDate": "2026-09-28",
+    "documentDate": "2026-09-27",
+    "poNumber": "4500012456",
+    "deliveryNoteNumber": "DN-SEI-9921",
+    "items": [
+      {
+        "itemNumber": "0001",
+        "poNumber": "4500012456",
+        "poItemNumber": "00010",
+        "materialNumber": "MAT-ELEC-01",
+        "materialDescription": "Industrial Miniature Circuit Breakers (MCB 32A)",
+        "movementType": "101",
+        "receivedQuantity": 100,
+        "unitOfMeasure": "EA",
+        "plant": "1010",
+        "storageLocation": "101A",
+        "qualityLotId": "100004510",
+        "acceptedQuantity": 100,
+        "rejectedQuantity": 0
+      }
+    ]
+  },
+  {
+    "materialDocumentNumber": "5000018915",
+    "fiscalYear": "2026",
+    "postingDate": "2026-09-30",
+    "documentDate": "2026-09-29",
+    "poNumber": "4500012500",
+    "deliveryNoteNumber": "DN-SIE-4011",
+    "items": [
+      {
+        "itemNumber": "0001",
+        "poNumber": "4500012500",
+        "poItemNumber": "00010",
+        "materialNumber": "MAT-SIEM-CTRL",
+        "materialDescription": "PLC Digital Input Module 24V DC",
+        "movementType": "101",
+        "receivedQuantity": 90,
+        "unitOfMeasure": "EA",
+        "plant": "1010",
+        "storageLocation": "101B",
+        "qualityLotId": "100004520",
+        "acceptedQuantity": 90,
+        "rejectedQuantity": 0
+      }
+    ]
+  },
+  {
+    "materialDocumentNumber": "5000018930",
+    "fiscalYear": "2026",
+    "postingDate": "2026-09-30",
+    "documentDate": "2026-09-30",
+    "poNumber": "4500012750",
+    "deliveryNoteNumber": "SES-TCS-0926",
+    "items": [
+      {
+        "itemNumber": "0001",
+        "poNumber": "4500012750",
+        "poItemNumber": "00010",
+        "materialNumber": "SRV-CLOUD-ARCH",
+        "materialDescription": "S/4HANA Migration Cloud Architecture Consulting",
+        "movementType": "101",
+        "receivedQuantity": 100,
+        "unitOfMeasure": "HR",
+        "plant": "1010",
+        "storageLocation": "VIRT",
+        "acceptedQuantity": 100,
+        "rejectedQuantity": 0
+      }
+    ]
+  },
+  {
+    "materialDocumentNumber": "5000018945",
+    "fiscalYear": "2026",
+    "postingDate": "2026-10-01",
+    "documentDate": "2026-10-01",
+    "poNumber": "4500012800",
+    "deliveryNoteNumber": "DN-WIP-1088",
+    "items": [
+      {
+        "itemNumber": "0001",
+        "poNumber": "4500012800",
+        "poItemNumber": "00010",
+        "materialNumber": "MAT-FLTR-IND",
+        "materialDescription": "Industrial HEPA Air Intake Filters Class H13",
+        "movementType": "101",
+        "receivedQuantity": 95,
+        "unitOfMeasure": "EA",
+        "plant": "1010",
+        "storageLocation": "101C",
+        "qualityLotId": "100004580",
+        "acceptedQuantity": 90,
+        "rejectedQuantity": 5
+      }
+    ]
+  },
+  {
+    "materialDocumentNumber": "5000018950",
+    "fiscalYear": "2026",
+    "postingDate": "2026-09-30",
+    "documentDate": "2026-09-30",
+    "poNumber": "4500012850",
+    "deliveryNoteNumber": "SES-AWS-SEP26",
+    "items": [
+      {
+        "itemNumber": "0001",
+        "poNumber": "4500012850",
+        "poItemNumber": "00010",
+        "materialNumber": "SRV-AWS-CORP",
+        "materialDescription": "AWS Enterprise Dedicated Cloud Compute Services (Sep 2026)",
+        "movementType": "101",
+        "receivedQuantity": 1,
+        "unitOfMeasure": "AU",
+        "plant": "1010",
+        "storageLocation": "VIRT",
+        "acceptedQuantity": 1,
+        "rejectedQuantity": 0
+      }
+    ]
+  },
+  {
+    "materialDocumentNumber": "5000018960",
+    "fiscalYear": "2026",
+    "postingDate": "2026-10-03",
+    "documentDate": "2026-10-03",
+    "poNumber": "4500012900",
+    "deliveryNoteNumber": "DN-SEI-PDU-04",
+    "items": [
+      {
+        "itemNumber": "0001",
+        "poNumber": "4500012900",
+        "poItemNumber": "00010",
+        "materialNumber": "MAT-ELEC-PDU",
+        "materialDescription": "Smart Power Distribution Unit 415V 63A Dual Feed",
+        "movementType": "101",
+        "receivedQuantity": 20,
+        "unitOfMeasure": "EA",
+        "plant": "1010",
+        "storageLocation": "101A",
+        "qualityLotId": "100004600",
+        "acceptedQuantity": 20,
+        "rejectedQuantity": 0
+      }
+    ]
+  },
+  {
+    "materialDocumentNumber": "5000018970",
+    "fiscalYear": "2026",
+    "postingDate": "2026-09-29",
+    "documentDate": "2026-09-29",
+    "poNumber": "4500012920",
+    "deliveryNoteNumber": "SES-INFY-0926",
+    "items": [
+      {
+        "itemNumber": "0001",
+        "poNumber": "4500012920",
+        "poItemNumber": "00010",
+        "materialNumber": "SRV-SAP-INT",
+        "materialDescription": "S/4HANA Integration Suite Consulting & Testing Services",
+        "movementType": "101",
+        "receivedQuantity": 150,
+        "unitOfMeasure": "HR",
+        "plant": "1010",
+        "storageLocation": "VIRT",
+        "acceptedQuantity": 150,
+        "rejectedQuantity": 0
+      }
+    ]
+  },
+  {
+    "materialDocumentNumber": "5000018980",
+    "fiscalYear": "2026",
+    "postingDate": "2026-09-28",
+    "documentDate": "2026-09-28",
+    "poNumber": "4500012950",
+    "deliveryNoteNumber": "SES-APEX-CLN01",
+    "items": [
+      {
+        "itemNumber": "0001",
+        "poNumber": "4500012950",
+        "poItemNumber": "00010",
+        "materialNumber": "SRV-CLNG-PUN",
+        "materialDescription": "Comprehensive Quarterly HVAC Duct Deep Cleaning — Pune Site",
+        "movementType": "101",
+        "receivedQuantity": 1,
+        "unitOfMeasure": "AU",
+        "plant": "1010",
+        "storageLocation": "101A",
+        "acceptedQuantity": 1,
+        "rejectedQuantity": 0
+      }
+    ]
+  }
+]

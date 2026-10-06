@@ -1,0 +1,35 @@
+{
+  "invoiceId": "INV-SCAN-641331",
+  "invoiceNumber": "SEI/2026/8082",
+  "sourceChannel": "PHYSICAL_SCAN",
+  "channelMetadata": {
+    "scannerLocation": "Plant 1010 Security Gate 2 Scanner",
+    "operatorId": "OP-4491",
+    "scanDpi": 300
+  },
+  "supplierTaxId": "27AAACS1234F1Z5",
+  "supplierName": "Schneider Electric India Pvt Ltd",
+  "buyerTaxId": "29AABCT1332L1ZV",
+  "buyerCompanyCode": "1010",
+  "invoiceDate": "2026-10-06",
+  "dueDate": "2026-11-05",
+  "currency": "INR",
+  "purchaseOrderReference": "4500012456",
+  "totalNetAmount": 50000,
+  "taxAmount": 9000,
+  "totalGrossAmount": 59000,
+  "lineItems": [
+    {
+      "itemNumber": "00010",
+      "description": "Industrial Miniature Circuit Breakers (MCB 32A)",
+      "quantity": 100,
+      "unitOfMeasure": "EA",
+      "unitPrice": 500,
+      "netAmount": 50000,
+      "taxRate": 18,
+      "taxAmount": 9000
+    }
+  ],
+  "processingStatus": "BUSINESS_VALIDATED",
+  "intakeTimestamp": "2026-10-06T04:57:21.331Z"
+}
