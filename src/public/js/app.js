@@ -193,6 +193,7 @@ class InvoiceDecisionApp {
       this.gstData = gstRes || { records: [], summary: null };
 
       this.updateKPICounters();
+      this.renderCurrentView();
     } catch (err) {
       console.error('Error loading data:', err);
       this.showToast('Failed to connect to SAP BTP backend services', 'error');
@@ -203,12 +204,18 @@ class InvoiceDecisionApp {
   // NAVIGATION & SHELL CONTROLLER
   // --------------------------------------------------------------------------
   switchView(viewName) {
+    if (this.currentRoute !== 'app') {
+      this.navigateToRoute('/app', true);
+    }
     this.activeView = viewName;
 
     if (viewName === 'decisionCenter') {
       if (!this._navigatingToDetail) {
         this.isDecisionDetailActive = false;
       }
+      this._navigatingToDetail = false;
+    } else {
+      this.isDecisionDetailActive = false;
       this._navigatingToDetail = false;
     }
 
@@ -240,6 +247,14 @@ class InvoiceDecisionApp {
     if (!sidebar) return;
     this.isSidebarCollapsed = !this.isSidebarCollapsed;
     sidebar.classList.toggle('collapsed', this.isSidebarCollapsed);
+  }
+
+  getSelectedInvoiceSubtitle() {
+    const inv = this.invoices.find((i) => i.invoice.invoiceId === this.selectedInvoiceId);
+    if (!inv) return 'Operational decision worklist prioritized by commercial impact and statutory SLA risk.';
+    const gross = (inv.invoice.totalGrossAmount || 0).toLocaleString('en-IN');
+    const po = inv.invoice.purchaseOrderReference ? `PO: ${inv.invoice.purchaseOrderReference}` : 'Non-PO';
+    return `${inv.invoice.supplierName} | Gross: ₹${gross} | ${po} | Status: ${inv.invoice.processingStatus} | AI: ${inv.aiDecision.recommendation} (${inv.aiDecision.confidenceScore}%)`;
   }
 
   updateBreadcrumbsAndHeader(viewName) {
@@ -441,9 +456,16 @@ class InvoiceDecisionApp {
       (i) => i.invoice.processingStatus === 'PENDING_BUSINESS_VALIDATION' || i.aiDecision.recommendation === 'BUSINESS_VALIDATION_REQUIRED'
     ).length;
     const exceptions = this.invoices.filter((i) =>
-      ['HOLD', 'MANUAL_REVIEW', 'REJECT'].includes(i.aiDecision.recommendation)
+      ['HOLD', 'MANUAL_REVIEW', 'REJECT'].includes(i.aiDecision.recommendation) ||
+      (i.aiDecision.identifiedExceptions && i.aiDecision.identifiedExceptions.length > 0) ||
+      i.invoice.isDuplicateSuspect ||
+      i.slaRecord?.status === 'APPROACHING_BREACH'
+    ).length;
+    const readyForFinance = this.invoices.filter(
+      (i) => i.invoice.processingStatus === 'POSTED_TO_SAP' || i.aiDecision.recommendation === 'AUTO_PROCEED'
     ).length;
 
+    // Sidebar navigation badges
     const bInbox = document.getElementById('navBadgeInbox');
     if (bInbox) bInbox.innerText = total;
 
@@ -452,6 +474,28 @@ class InvoiceDecisionApp {
 
     const bEx = document.getElementById('navBadgeExceptions');
     if (bEx) bEx.innerText = exceptions;
+
+    // Command Center operational metrics strip
+    const stripIncoming = document.getElementById('stripIncoming');
+    if (stripIncoming) stripIncoming.innerText = total;
+
+    const stripNeedsDecision = document.getElementById('stripNeedsDecision');
+    if (stripNeedsDecision) stripNeedsDecision.innerText = pendingVal + exceptions;
+
+    const stripExceptions = document.getElementById('stripExceptions');
+    if (stripExceptions) stripExceptions.innerText = exceptions;
+
+    const stripReady = document.getElementById('stripReady');
+    if (stripReady) stripReady.innerText = readyForFinance;
+
+    const stripGstRisk = document.getElementById('stripGstRisk');
+    if (stripGstRisk && this.gstData?.summary?.totalBlockedItc) {
+      stripGstRisk.innerText = `₹${this.gstData.summary.totalBlockedItc.toLocaleString('en-IN')}`;
+    }
+
+    // Decision queue count badge
+    const badge = document.getElementById('decisionQueueTableBadge');
+    if (badge) badge.innerText = `${total} Invoices`;
   }
 
   handleGlobalSearch(e) {
@@ -739,6 +783,9 @@ class InvoiceDecisionApp {
   // VIEW 3: DECISION CENTER (HERO WORKSPACE)
   // --------------------------------------------------------------------------
   selectAndOpenDecision(invoiceId) {
+    if (this.currentRoute !== 'app') {
+      this.navigateToRoute('/app', true);
+    }
     this.selectedInvoiceId = invoiceId;
     this.isDecisionDetailActive = true;
     this._navigatingToDetail = true;
@@ -750,6 +797,7 @@ class InvoiceDecisionApp {
     this.updateBreadcrumbsAndHeader('decisionCenter');
     this.renderDecisionWorkspace();
     this.runWhatIfSimulation();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   backToDecisionQueue() {
@@ -1322,37 +1370,49 @@ class InvoiceDecisionApp {
     tbody.innerHTML = this.invoices
       .map((item) => {
         const { invoice, reconciliation } = item;
-        const vendorBadge = reconciliation.vendorMatched
+        const vendorBadge = reconciliation?.vendorMatched
           ? `<span class="status-pill status-pill-success">${ICONS.check} Matched</span>`
-          : `<span class="status-pill status-pill-error">${ICONS.x} Mismatch</span>`;
+          : invoice.purchaseOrderReference
+          ? `<span class="status-pill status-pill-error">${ICONS.x} Mismatch</span>`
+          : `<span class="status-pill status-pill-neutral">Non-PO</span>`;
+
+        const qmBadge =
+          reconciliation?.qualityStatus === 'ALL_PASSED'
+            ? `<span class="sap-badge sap-badge-success">${ICONS.check} Passed</span>`
+            : reconciliation?.qualityStatus === 'REJECTIONS_DETECTED'
+            ? `<span class="sap-badge sap-badge-error">${ICONS.alertTriangle} Rejected</span>`
+            : `<span class="sap-badge sap-badge-neutral">N/A</span>`;
+
+        const variancePct = reconciliation?.priceVariancePercentage != null ? reconciliation.priceVariancePercentage.toFixed(1) : '0.0';
 
         return `
           <tr>
             <td><strong>${invoice.invoiceId}</strong><br><small style="color:var(--text-muted);">${invoice.supplierName}</small></td>
-            <td>${invoice.purchaseOrderReference ? `<code>${invoice.purchaseOrderReference}</code>` : '<em>Non-PO</em>'}</td>
+            <td>${invoice.purchaseOrderReference ? `<code>${invoice.purchaseOrderReference}</code>` : '<em style="color:var(--text-muted);">Non-PO</em>'}</td>
             <td>${vendorBadge}</td>
-            <td><strong>${reconciliation.quantityInvoiced} / ${reconciliation.quantityReceived} EA</strong><br><small>${reconciliation.quantityStatus}</small></td>
-            <td><strong>₹${reconciliation.invoicedUnitPrice} vs ₹${reconciliation.poUnitPrice}</strong><br><small>${reconciliation.priceVariancePercentage.toFixed(1)}% delta</small></td>
-            <td><span class="sap-badge ${reconciliation.qualityStatus === 'ALL_PASSED' ? 'sap-badge-success' : reconciliation.qualityStatus === 'REJECTIONS_DETECTED' ? 'sap-badge-error' : 'sap-badge-neutral'}">${reconciliation.qualityStatus === 'ALL_PASSED' ? 'Passed' : reconciliation.qualityStatus === 'REJECTIONS_DETECTED' ? 'Rejected' : 'N/A'}</span></td>
+            <td><strong>${reconciliation?.quantityInvoiced || 0} / ${reconciliation?.quantityReceived || 0} EA</strong><br><small style="color:var(--text-secondary);">${reconciliation?.quantityStatus || 'N/A'}</small></td>
+            <td><strong>₹${(reconciliation?.invoicedUnitPrice || 0).toLocaleString('en-IN')} vs ₹${(reconciliation?.poUnitPrice || 0).toLocaleString('en-IN')}</strong><br><small style="color:var(--text-secondary);">${variancePct}% delta</small></td>
+            <td>${qmBadge}</td>
             <td>
               <div style="display:flex; gap:4px; flex-wrap:wrap;">
-                <span class="status-pill ${reconciliation.quantityStatus === 'EXACT_MATCH' ? 'status-pill-success' : 'status-pill-warning'}">
-                  ${reconciliation.quantityStatus === 'EXACT_MATCH' ? ICONS.check : ICONS.alertTriangle}
-                  DQ ${reconciliation.quantityStatus === 'EXACT_MATCH' ? 'Passed' : 'Review'}
+                <span class="status-pill ${reconciliation?.quantityStatus === 'EXACT_MATCH' ? 'status-pill-success' : 'status-pill-warning'}">
+                  ${reconciliation?.quantityStatus === 'EXACT_MATCH' ? ICONS.check : ICONS.alertTriangle}
+                  DQ ${reconciliation?.quantityStatus === 'EXACT_MATCH' ? 'Passed' : 'Review'}
                 </span>
-                <span class="status-pill ${reconciliation.priceStatus === 'EXACT_MATCH' ? 'status-pill-success' : 'status-pill-warning'}">
-                  ${reconciliation.priceStatus === 'EXACT_MATCH' ? ICONS.check : ICONS.alertTriangle}
-                  PP ${reconciliation.priceStatus === 'EXACT_MATCH' ? 'Passed' : 'Review'}
+                <span class="status-pill ${reconciliation?.priceStatus === 'EXACT_MATCH' ? 'status-pill-success' : 'status-pill-warning'}">
+                  ${reconciliation?.priceStatus === 'EXACT_MATCH' ? ICONS.check : ICONS.alertTriangle}
+                  PP ${reconciliation?.priceStatus === 'EXACT_MATCH' ? 'Passed' : 'Review'}
                 </span>
-                <span class="status-pill ${reconciliation.amountStatus === 'WITHIN_TOLERANCE' ? 'status-pill-success' : 'status-pill-warning'}">
-                  ${reconciliation.amountStatus === 'WITHIN_TOLERANCE' ? ICONS.check : ICONS.alertTriangle}
-                  BD ${reconciliation.amountStatus === 'WITHIN_TOLERANCE' ? 'Passed' : 'Review'}
+                <span class="status-pill ${reconciliation?.amountStatus === 'WITHIN_TOLERANCE' ? 'status-pill-success' : 'status-pill-warning'}">
+                  ${reconciliation?.amountStatus === 'WITHIN_TOLERANCE' ? ICONS.check : ICONS.alertTriangle}
+                  BD ${reconciliation?.amountStatus === 'WITHIN_TOLERANCE' ? 'Passed' : 'Review'}
                 </span>
               </div>
             </td>
             <td>
               <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.selectAndOpenDecision('${invoice.invoiceId}')">
                 <span>Drilldown</span>
+                ${ICONS.arrowRight}
               </button>
             </td>
           </tr>
@@ -1371,60 +1431,118 @@ class InvoiceDecisionApp {
     const pending = this.invoices.filter(
       (i) => i.invoice.processingStatus === 'PENDING_BUSINESS_VALIDATION' || i.aiDecision.recommendation === 'BUSINESS_VALIDATION_REQUIRED'
     );
+    const completed = this.invoices.filter(
+      (i) => i.invoice.processingStatus === 'BUSINESS_VALIDATED' || i.businessOwnerDecision !== null || i.invoice.processingStatus === 'REJECTED'
+    );
 
-    if (pending.length === 0) {
-      container.innerHTML = `
-        <div style="text-align:center; padding:40px; color:var(--text-muted);">
+    let html = '';
+
+    if (pending.length > 0) {
+      html += `<div style="font-weight:700; font-size:13px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-secondary); margin-bottom:12px;">Pending Business Owner Sign-Off (${pending.length})</div>`;
+      html += pending
+        .map((item) => {
+          const { invoice, purchaseOrder, reconciliation } = item;
+          const systemCheck = reconciliation.quantityStatus !== 'EXACT_MATCH'
+            ? `Quantity mismatch: Billed ${reconciliation.quantityInvoiced} vs ${reconciliation.quantityReceived} received`
+            : reconciliation.priceStatus !== 'EXACT_MATCH'
+            ? `Unit price variance: ${(reconciliation.priceVariancePercentage || 0).toFixed(1)}% above PO price`
+            : 'Statutory 48h E-Invoice acceptance sign-off required';
+
+          return `
+            <div class="sap-card" style="margin-bottom:16px; border-left:4px solid var(--status-warning);">
+              <div class="sap-card-header">
+                <div class="sap-card-title">VALIDATE BUSINESS REQUEST: ${invoice.invoiceId} (${invoice.invoiceNumber})</div>
+                <span class="sap-badge sap-badge-warning">${ICONS.user} Commercial Validation Pending</span>
+              </div>
+              <div style="padding:16px 20px;">
+                <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; font-size:12px; margin-bottom:14px; background:var(--surface-subtle); padding:12px; border-radius:var(--radius-input);">
+                  <div><strong>PO:</strong> <code>${purchaseOrder ? purchaseOrder.poNumber : 'Non-PO'}</code></div>
+                  <div><strong>SUPPLIER:</strong> ${invoice.supplierName}</div>
+                  <div><strong>INVOICE:</strong> ${invoice.invoiceNumber}</div>
+                  <div><strong>VALUE:</strong> ₹${(invoice.totalGrossAmount || 0).toLocaleString('en-IN')}</div>
+                </div>
+
+                <div style="margin-bottom:14px; font-size:13px;">
+                  <strong>REQUEST:</strong> ${purchaseOrder ? purchaseOrder.lineItems?.[0]?.description || 'Commercial requisition' : 'Recurring operational services'}
+                </div>
+
+                <div style="background:var(--bg-warning); border:1px solid #FDE68A; padding:10px 14px; border-radius:var(--radius-input); font-size:12px; color:#A16207; font-weight:600; margin-bottom:16px; display:flex; align-items:center; gap:6px;">
+                  ${ICONS.alertTriangle}
+                  <span>SYSTEM CHECK: ${systemCheck}</span>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                  <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.selectAndOpenDecision('${invoice.invoiceId}')">
+                    <span>Inspect Decision & Evidence</span>
+                    ${ICONS.arrowRight}
+                  </button>
+                  <div style="display:flex; gap:10px;">
+                    <button class="sap-btn sap-btn-negative sap-btn-sm" onclick="app.quickValidationAction('${invoice.invoiceId}', 'REJECT')">Reject</button>
+                    <button class="sap-btn sap-btn-critical sap-btn-sm" onclick="app.quickValidationAction('${invoice.invoiceId}', 'SEND_BACK')">Send Back</button>
+                    <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.quickValidationAction('${invoice.invoiceId}', 'REQUEST_CLARIFICATION')">Request Clarification</button>
+                    <button class="sap-btn sap-btn-positive sap-btn-sm" onclick="app.quickValidationAction('${invoice.invoiceId}', 'ACCEPT')">Accept</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+    } else {
+      html += `
+        <div style="text-align:center; padding:30px; color:var(--text-muted); background:var(--surface-subtle); border-radius:var(--radius-input); margin-bottom:20px;">
           <h3>No Invoices Awaiting Business Owner Validation</h3>
           <p style="font-size:13px; margin-top:8px;">All commercial purchases have been signed off or processed.</p>
         </div>
       `;
-      return;
     }
 
-    container.innerHTML = pending
-      .map((item) => {
-        const { invoice, purchaseOrder, reconciliation } = item;
-        const systemCheck = reconciliation.quantityStatus !== 'EXACT_MATCH'
-          ? `Quantity mismatch: Billed ${reconciliation.quantityInvoiced} vs ${reconciliation.quantityReceived} received`
-          : reconciliation.priceStatus !== 'EXACT_MATCH'
-          ? `Unit price variance: ${reconciliation.priceVariancePercentage.toFixed(1)}% above PO price`
-          : 'All three-way matching criteria verified';
+    if (completed.length > 0) {
+      html += `<div style="font-weight:700; font-size:13px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-secondary); margin:24px 0 12px 0;">Completed Commercial Validations (${completed.length})</div>`;
+      html += `
+        <div class="sap-table-wrapper">
+          <table class="sap-table">
+            <thead>
+              <tr>
+                <th>Invoice ID</th>
+                <th>Supplier</th>
+                <th>PO Reference</th>
+                <th>Amount</th>
+                <th>Decision / Outcome</th>
+                <th>Requisitioner Justification</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${completed
+                .map((c) => {
+                  const statusBadge = this.getProcessingStatusBadge(c.invoice.processingStatus);
+                  const reason = c.businessOwnerDecision?.reason || (c.invoice.processingStatus === 'REJECTED' ? 'Work not performed to standard' : 'Commercial delivery confirmed by requisitioner.');
+                  return `
+                    <tr>
+                      <td><strong>${c.invoice.invoiceId}</strong></td>
+                      <td>${c.invoice.supplierName}</td>
+                      <td>${c.invoice.purchaseOrderReference ? `<code>${c.invoice.purchaseOrderReference}</code>` : '<em>Non-PO</em>'}</td>
+                      <td><strong>₹${(c.invoice.totalGrossAmount || 0).toLocaleString('en-IN')}</strong></td>
+                      <td>${statusBadge}</td>
+                      <td style="font-size:12px; color:var(--text-secondary); max-width:300px;">${reason}</td>
+                      <td>
+                        <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.selectAndOpenDecision('${c.invoice.invoiceId}')">
+                          <span>Inspect</span>
+                          ${ICONS.arrowRight}
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                })
+                .join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
 
-        return `
-          <div class="sap-card" style="margin-bottom:16px; border-left:4px solid var(--status-warning);">
-            <div class="sap-card-header">
-              <div class="sap-card-title">VALIDATE BUSINESS REQUEST: ${invoice.invoiceId}</div>
-              <span class="sap-badge sap-badge-warning">${ICONS.user} Commercial Validation Pending</span>
-            </div>
-            <div style="padding:16px 20px;">
-              <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; font-size:12px; margin-bottom:14px; background:var(--surface-subtle); padding:12px; border-radius:var(--radius-input);">
-                <div><strong>PO:</strong> <code>${purchaseOrder ? purchaseOrder.poNumber : 'Non-PO'}</code></div>
-                <div><strong>SUPPLIER:</strong> ${invoice.supplierName}</div>
-                <div><strong>INVOICE:</strong> ${invoice.invoiceNumber}</div>
-                <div><strong>VALUE:</strong> ₹${(invoice.totalGrossAmount || 0).toLocaleString('en-IN')}</div>
-              </div>
-
-              <div style="margin-bottom:14px; font-size:13px;">
-                <strong>REQUEST:</strong> ${purchaseOrder ? purchaseOrder.lineItems[0]?.description : 'Recurring operational services'}
-              </div>
-
-              <div style="background:var(--bg-warning); border:1px solid #FDE68A; padding:10px 14px; border-radius:var(--radius-input); font-size:12px; color:#A16207; font-weight:600; margin-bottom:16px; display:flex; align-items:center; gap:6px;">
-                ${ICONS.alertTriangle}
-                <span>SYSTEM CHECK: ${systemCheck}</span>
-              </div>
-
-              <div style="display:flex; justify-content:flex-end; gap:10px;">
-                <button class="sap-btn sap-btn-negative sap-btn-sm" onclick="app.quickValidationAction('${invoice.invoiceId}', 'REJECT')">Reject</button>
-                <button class="sap-btn sap-btn-critical sap-btn-sm" onclick="app.quickValidationAction('${invoice.invoiceId}', 'SEND_BACK')">Send Back</button>
-                <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.quickValidationAction('${invoice.invoiceId}', 'REQUEST_CLARIFICATION')">Request Clarification</button>
-                <button class="sap-btn sap-btn-positive sap-btn-sm" onclick="app.quickValidationAction('${invoice.invoiceId}', 'ACCEPT')">Accept</button>
-              </div>
-            </div>
-          </div>
-        `;
-      })
-      .join('');
+    container.innerHTML = html;
   }
 
   // --------------------------------------------------------------------------
@@ -1434,92 +1552,105 @@ class InvoiceDecisionApp {
     const tbody = document.getElementById('exceptionsTableBody');
     if (!tbody) return;
 
-    const exceptionList = [
-      {
-        severity: 'CRITICAL',
-        invoiceId: 'INV-2026-00008',
-        supplier: 'Schneider Electric India Pvt Ltd',
-        happened: 'Statutory GST E-Invoice IRN approaching 48-hour acceptance deadline.',
-        matters: 'Failure to accept or reject before 48h forces automatic statutory acceptance under GST DRC regulations.',
-        action: 'Escalate to Business Owner Amit Verma for immediate sign-off.',
-      },
-      {
-        severity: 'CRITICAL',
-        invoiceId: 'INV-2026-00007',
-        supplier: 'Amazon Web Services India Pvt Ltd',
-        happened: 'Duplicate invoice detected against existing posted BELNR 5105600101.',
-        matters: 'Prevents double financial posting and duplicate treasury cash outflow.',
-        action: 'Reject duplicate submission and notify Accounts Payable.',
-      },
-      {
-        severity: 'CRITICAL',
-        invoiceId: 'INV-2026-00004',
-        supplier: 'Apex Facility Services Pvt Ltd',
-        happened: 'Vendor mismatch: Invoice vendor differs from PO vendor (Siemens Healthcare).',
-        matters: 'Indicates unauthorized assignment or commercial billing misrouting.',
-        action: 'Hold invoice and verify vendor assignment with Strategic Sourcing.',
-      },
-      {
-        severity: 'HIGH',
-        invoiceId: 'INV-2026-00006',
-        supplier: 'Camfil Clean Air Systems India Pvt Ltd',
-        happened: '5 units rejected in SAP QM Inspection Lot 030000018902.',
-        matters: 'Invoicing for rejected / failed materials before credit memo issuance.',
-        action: 'Apply payment block R in S/4HANA until Credit Note arrives.',
-      },
-      {
-        severity: 'HIGH',
-        invoiceId: 'INV-2026-00009',
-        supplier: 'Infosys Limited',
-        happened: 'GSTR-2B Statement tax discrepancy (₹12,600 missing tax credit).',
-        matters: 'Claiming tax without GSTR-2B presence triggers Section 16(2)(aa) audit notices.',
-        action: 'Park invoice and notify Infosys AP desk to file GSTR-1 amendment.',
-      },
-      {
-        severity: 'MEDIUM',
-        invoiceId: 'INV-2026-00002',
-        supplier: 'L&T Electrical & Automation Ltd',
-        happened: 'Over-delivery: Invoiced 100 EA vs 90 EA recorded in SAP Goods Receipt.',
-        matters: 'Commercial exposure of ₹12,000 unverified inventory.',
-        action: 'Obtain warehouse receipt confirmation or request revised billing.',
-      },
-      {
-        severity: 'MEDIUM',
-        invoiceId: 'INV-2026-00005',
-        supplier: 'Tata Consultancy Services Ltd',
-        happened: 'Unit price exceeds PO price by +15.0% (Tolerance Key PP breached).',
-        matters: 'Unapproved price escalation exceeding procurement contract terms.',
-        action: 'Request Requisitioner variance approval or rate revision.',
-      },
-    ];
+    const exceptionInvoices = this.invoices.filter((item) => {
+      const rec = item.aiDecision?.recommendation;
+      const flags = item.aiDecision?.identifiedExceptions || [];
+      const hasIssue =
+        ['HOLD', 'MANUAL_REVIEW', 'REJECT'].includes(rec) ||
+        flags.length > 0 ||
+        item.invoice?.isDuplicateSuspect ||
+        item.slaRecord?.status === 'APPROACHING_BREACH' ||
+        item.reconciliation?.vendorMatched === false ||
+        item.reconciliation?.quantityStatus === 'OVER_DELIVERY' ||
+        item.reconciliation?.priceStatus === 'PRICE_VARIANCE_BREACH' ||
+        item.reconciliation?.qualityStatus === 'REJECTIONS_DETECTED';
+      return hasIssue;
+    });
 
-    tbody.innerHTML = exceptionList
-      .map(
-        (ex) => `
-        <tr>
-          <td>
-            <span class="sap-badge ${ex.severity === 'CRITICAL' ? 'sap-badge-error' : ex.severity === 'HIGH' ? 'sap-badge-warning' : 'sap-badge-info'}">
-              ${ex.severity === 'CRITICAL' ? ICONS.alertTriangle : ex.severity === 'HIGH' ? ICONS.alertTriangle : ICONS.info}
-              ${ex.severity}
-            </span>
-          </td>
-          <td><strong>${ex.invoiceId}</strong></td>
-          <td>
-            <a href="#" style="color:var(--brand-primary); text-decoration:none; font-weight:600;" onclick="app.openSupplierDrawer('${ex.supplier}'); return false;">
-              ${ex.supplier}
-            </a>
-          </td>
-          <td>${ex.happened}</td>
-          <td style="color:var(--text-secondary);">${ex.matters}</td>
-          <td><strong style="color:#188038;">${ex.action}</strong></td>
-          <td>
-            <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.selectAndOpenDecision('${ex.invoiceId}')">
-              <span>Resolve</span>
-            </button>
-          </td>
-        </tr>
-      `
-      )
+    if (exceptionInvoices.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px; color:var(--text-muted);">No active exceptions detected across canonical invoices.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = exceptionInvoices
+      .map((item) => {
+        const { invoice, reconciliation, aiDecision, slaRecord } = item;
+        let severity = 'MEDIUM';
+        let happened = aiDecision.explanation?.whyRecommended?.[0] || 'Variance detected in automated checks.';
+        let matters = 'Requires resolution prior to finance settlement to prevent compliance or cash-flow discrepancies.';
+        let action = aiDecision.explanation?.suggestedAction || 'Inspect and resolve in Decision Center.';
+
+        if (invoice.isDuplicateSuspect) {
+          severity = 'CRITICAL';
+          happened = `Duplicate invoice detected: Same vendor and amount ₹${(invoice.totalGrossAmount || 0).toLocaleString('en-IN')} previously recorded.`;
+          matters = 'Prevents duplicate financial settlement and unwarranted treasury outflow.';
+          action = 'Reject duplicate invoice and notify Accounts Payable.';
+        } else if (slaRecord?.status === 'APPROACHING_BREACH') {
+          severity = 'CRITICAL';
+          happened = `Statutory GST E-Invoice IRN approaching 48-hour acceptance deadline.`;
+          matters = 'Failure to accept or reject before statutory window expires forces automatic deemed acceptance.';
+          action = 'Escalate to Business Owner for urgent verification.';
+        } else if (reconciliation?.vendorMatched === false && invoice.purchaseOrderReference) {
+          severity = 'CRITICAL';
+          happened = `Vendor mismatch: Invoiced vendor does not match PO vendor (${item.purchaseOrder?.supplierName || 'PO Vendor'}).`;
+          matters = 'Indicates unauthorized assignment or commercial billing misrouting.';
+          action = 'Hold invoice and verify vendor assignment with Strategic Sourcing.';
+        } else if (reconciliation?.qualityStatus === 'REJECTIONS_DETECTED') {
+          severity = 'HIGH';
+          happened = `Quality defect: Rejected units detected in SAP QM inspection lot.`;
+          matters = 'Invoicing for rejected materials before credit memo issuance violates LIV controls.';
+          action = 'Apply payment block R in S/4HANA until Credit Note arrives.';
+        } else if (invoice.invoiceId === 'INV-2026-00009') {
+          severity = 'HIGH';
+          happened = `GSTR-2B Statement tax discrepancy (₹12,600 missing tax credit).`;
+          matters = 'Claiming tax without GSTR-2B presence triggers Section 16(2)(aa) audit notices.';
+          action = 'Park invoice and notify vendor AP desk to file GSTR-1 amendment.';
+        } else if (reconciliation?.quantityStatus === 'OVER_DELIVERY') {
+          severity = 'MEDIUM';
+          happened = `Over-delivery: Invoiced ${reconciliation.quantityInvoiced} EA vs ${reconciliation.quantityReceived} EA recorded in SAP Goods Receipt.`;
+          matters = `Commercial delta of ${reconciliation.quantityInvoiced - reconciliation.quantityReceived} unverified units.`;
+          action = 'Obtain warehouse receipt confirmation or request revised billing.';
+        } else if (reconciliation?.priceStatus === 'PRICE_VARIANCE_BREACH' || (reconciliation?.priceVariancePercentage || 0) > 5) {
+          severity = 'MEDIUM';
+          happened = `Unit price exceeds PO price by +${(reconciliation?.priceVariancePercentage || 0).toFixed(1)}% (Tolerance PP breached).`;
+          matters = 'Unapproved price escalation exceeding procurement contract terms.';
+          action = 'Request Requisitioner variance approval or rate revision.';
+        } else if (aiDecision.recommendation === 'REJECT') {
+          severity = 'CRITICAL';
+          happened = `Rejected by Business Owner / Requisitioner: Commercial delivery disputed.`;
+          matters = 'Disputed invoice halted from accounts payable posting.';
+          action = 'Issue formal vendor dispute advisory.';
+        }
+
+        const badgeClass = severity === 'CRITICAL' ? 'sap-badge-error' : severity === 'HIGH' ? 'sap-badge-warning' : 'sap-badge-info';
+        const iconSvg = severity === 'CRITICAL' ? ICONS.alertTriangle : severity === 'HIGH' ? ICONS.alertTriangle : ICONS.info;
+
+        return `
+          <tr>
+            <td>
+              <span class="sap-badge ${badgeClass}">
+                ${iconSvg}
+                ${severity}
+              </span>
+            </td>
+            <td><strong>${invoice.invoiceId}</strong><br><small style="color:var(--text-muted);">${invoice.invoiceNumber}</small></td>
+            <td>
+              <a href="#" style="color:var(--brand-primary); text-decoration:none; font-weight:600;" onclick="app.openSupplierDrawer('${invoice.supplierName}'); return false;">
+                ${invoice.supplierName}
+              </a>
+            </td>
+            <td>${happened}</td>
+            <td style="color:var(--text-secondary);">${matters}</td>
+            <td><strong style="color:#188038;">${action}</strong></td>
+            <td>
+              <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.selectAndOpenDecision('${invoice.invoiceId}')">
+                <span>Inspect</span>
+                ${ICONS.arrowRight}
+              </button>
+            </td>
+          </tr>
+        `;
+      })
       .join('');
   }
 
