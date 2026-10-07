@@ -3,6 +3,8 @@
  */
 
 import { Router, Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
 import { InvoiceRepository } from '../services/InvoiceRepository';
 import { PhysicalScanAdapter } from '../integrations/intake/PhysicalScanAdapter';
 import { EmailIntakeAdapter } from '../integrations/intake/EmailIntakeAdapter';
@@ -127,6 +129,102 @@ export function createApiRouter(repository: InvoiceRepository): Router {
       res.status(500).json({ error: error.message });
     }
   });
+
+  // 3b. Source Document Details & Preview Metadata
+  router.get('/invoices/:id/source-document', (req: Request, res: Response) => {
+    try {
+      const invoiceId = getId(req);
+      const invoice = repository.getInvoiceById(invoiceId);
+      if (!invoice) {
+        return res.status(404).json({ error: `Invoice ${invoiceId} not found.` });
+      }
+
+      const inboundBase = path.resolve(__dirname, '..', '..', 'mock-data', 'inbound');
+      let docInfo: any = {
+        invoiceId,
+        sourceChannel: invoice.sourceChannel,
+        channelMetadata: invoice.channelMetadata,
+      };
+
+      if (invoice.sourceChannel === 'PHYSICAL_SCAN') {
+        const docFile = `${invoiceId}.pdf`;
+        const metaPath = path.join(inboundBase, 'physical-gate-scanner', 'metadata', `${invoiceId}.json`);
+        let meta = null;
+        if (fs.existsSync(metaPath)) {
+          meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+        }
+        docInfo = {
+          ...docInfo,
+          documentType: 'PDF_SCAN',
+          documentUrl: `/inbound-docs/physical-gate-scanner/documents/${docFile}`,
+          metadata: meta || {
+            invoiceId,
+            sourceChannel: 'PHYSICAL_GATE_SCANNER',
+            sourceFile: docFile,
+            plant: '1010',
+            scannerLocation: invoice.channelMetadata.scannerLocation || 'Gate 2 Scanner',
+            operatorId: invoice.channelMetadata.operatorId || 'OP-4491',
+            ocrResolution: `${invoice.channelMetadata.scanDpi || 300} DPI`,
+            ocrConfidence: 98.4,
+          },
+        };
+      } else if (invoice.sourceChannel === 'EMAIL_INBOUND') {
+        const attFile = `${invoiceId}.pdf`;
+        const emlFile = `email_${invoiceId}.eml`;
+        const metaPath = path.join(inboundBase, 'vendor-ap-mailbox', 'metadata', `${invoiceId}.json`);
+        let meta = null;
+        if (fs.existsSync(metaPath)) {
+          meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+        }
+        docInfo = {
+          ...docInfo,
+          documentType: 'EMAIL_ATTACHMENT',
+          documentUrl: `/inbound-docs/vendor-ap-mailbox/attachments/${attFile}`,
+          emailUrl: `/inbound-docs/vendor-ap-mailbox/emails/${emlFile}`,
+          metadata: meta || {
+            invoiceId,
+            sourceChannel: 'VENDOR_AP_MAILBOX',
+            mailbox: 'ap-invoices@enterprise.com',
+            senderEmail: invoice.channelMetadata.emailSender,
+            spfStatus: 'PASS',
+            dkimStatus: 'PASS',
+            attachmentName: invoice.channelMetadata.attachmentName || attFile,
+          },
+        };
+      } else if (invoice.sourceChannel === 'GOVERNMENT_EINVOICE') {
+        const docFile = `${invoiceId}.pdf`;
+        const payloadPath = path.join(inboundBase, 'government-einvoice-irp', 'payloads', `${invoiceId}.json`);
+        const metaPath = path.join(inboundBase, 'government-einvoice-irp', 'metadata', `${invoiceId}.json`);
+        let payload = null;
+        let meta = null;
+        if (fs.existsSync(payloadPath)) {
+          payload = JSON.parse(fs.readFileSync(payloadPath, 'utf8'));
+        }
+        if (fs.existsSync(metaPath)) {
+          meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+        }
+        docInfo = {
+          ...docInfo,
+          documentType: 'GOVERNMENT_EINVOICE_IRP',
+          documentUrl: `/inbound-docs/government-einvoice-irp/documents/${docFile}`,
+          payloadUrl: `/inbound-docs/government-einvoice-irp/payloads/${invoiceId}.json`,
+          rawPayload: payload,
+          metadata: meta || {
+            invoiceId,
+            sourceChannel: 'GOVERNMENT_EINVOICE_IRP',
+            irn: invoice.channelMetadata.irn,
+            acknowledgementNumber: invoice.channelMetadata.acknowledgementNumber,
+            acknowledgementDate: invoice.channelMetadata.acknowledgementDate,
+          },
+        };
+      }
+
+      res.json(docInfo);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
 
   // 4. Physical Invoice Intake
   router.post('/invoices/intake/physical', async (req: Request, res: Response) => {

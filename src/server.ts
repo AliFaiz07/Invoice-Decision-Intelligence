@@ -23,6 +23,11 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 const publicDir = path.join(__dirname, 'public');
 app.use(express.static(publicDir));
 
+// Static inbound documents & mock fixtures
+const inboundDir = path.resolve(__dirname, '..', 'mock-data', 'inbound');
+app.use('/inbound-docs', express.static(inboundDir));
+app.use('/mock-data/inbound', express.static(inboundDir));
+
 // Initialize enterprise repository
 const repository = new InvoiceRepository();
 
