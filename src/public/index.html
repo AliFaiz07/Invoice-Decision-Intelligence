@@ -1870,68 +1870,129 @@
         <!-- ================================================================== -->
         <section id="viewDecisionCenter" class="view-panel" style="display: none;">
           
-          <!-- Interactive What-If & Stress Test Simulator Toggle -->
-          <div class="whatif-panel" id="whatifPanel" style="display:none;">
-            <div class="whatif-header">
-              <div class="whatif-title">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 20v-6M6 20V10M18 20V4"></path>
-                </svg>
-                <span>Interactive What-If & Stress Test Simulator</span>
+          <!-- 1. FULL-SCREEN DECISION CENTER QUEUE -->
+          <div id="decisionQueueContainer" class="decision-queue-container" style="display: block;">
+            <div class="sap-card">
+              <div class="sap-card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                <div>
+                  <div class="sap-card-title" style="display:flex; align-items:center; gap:8px;">
+                    <span>Invoice Decision Queue</span>
+                    <span class="sap-badge sap-badge-info" id="decisionQueueTableBadge">10 Invoices</span>
+                  </div>
+                  <span class="sap-card-subtitle">Operational decision worklist prioritized by commercial impact, validation rules, and statutory SLA risk.</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <input type="text" id="decisionQueueSearch" class="sap-input" placeholder="Search queue (ID, supplier, PO)..." style="width:250px;" oninput="app.renderDecisionTable()">
+                  <select id="decisionQueueFilter" class="sap-select" style="width:170px;" onchange="app.renderDecisionTable()">
+                    <option value="ALL">All Decisions</option>
+                    <option value="AUTO_PROCEED">Auto-Proceed</option>
+                    <option value="MANUAL_REVIEW">Manual Review</option>
+                    <option value="BUSINESS_VALIDATION_REQUIRED">Awaiting Owner</option>
+                    <option value="HOLD">Hold</option>
+                    <option value="REJECT">Reject</option>
+                  </select>
+                </div>
               </div>
-              <div style="display:flex; gap:8px;">
-                <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.resetWhatIf()">Reset Defaults</button>
-                <button class="sap-btn sap-btn-ghost sap-btn-sm" onclick="app.toggleWhatIfPanel()">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                  <span>Close</span>
+              <div class="sap-table-wrapper">
+                <table class="sap-table" id="decisionQueueTable">
+                  <thead>
+                    <tr>
+                      <th>Invoice ID</th>
+                      <th>Supplier</th>
+                      <th>Gross Amount</th>
+                      <th>PO Reference</th>
+                      <th>Status</th>
+                      <th>AI Decision</th>
+                      <th>Priority</th>
+                      <th>Assigned Owner</th>
+                      <th style="text-align:right;">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="decisionQueueTableBody">
+                    <!-- Populated dynamically by JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <!-- Hidden backward-compatibility elements -->
+            <div id="decisionCardList" style="display:none;"></div>
+            <span id="decisionQueueCount" style="display:none;"></span>
+          </div>
+
+          <!-- 2. FULL-SCREEN INVOICE DETAIL VIEW -->
+          <div id="decisionDetailContainer" class="decision-detail-container" style="display: none;">
+            
+            <!-- Top Detail Navigation & Actions Bar -->
+            <div class="detail-nav-bar">
+              <button class="sap-btn sap-btn-secondary" onclick="app.backToDecisionQueue()" style="display:inline-flex; align-items:center; gap:8px; font-weight:600;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="19" y1="12" x2="5" y2="12"></line>
+                  <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+                <span>Back to Decision Queue</span>
+              </button>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.openDocPreview(app.selectedInvoiceId)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                  <span>View Source Document</span>
+                </button>
+                <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.toggleWhatIfPanel()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--brand-primary)" stroke-width="2"><path d="M12 20v-6M6 20V10M18 20V4"></path></svg>
+                  <span>What-If Simulator</span>
                 </button>
               </div>
             </div>
-            <div class="whatif-controls-grid">
-              <div class="whatif-control-item">
-                <label style="font-size:12px; font-weight:600; color:var(--text-secondary);">
-                  Price Variance Tolerance (PP): <span id="labelWhatIfPrice" style="color:var(--brand-primary);">5%</span>
-                </label>
-                <input type="range" class="whatif-slider" id="sliderWhatIfPrice" min="0" max="25" value="5" oninput="app.runWhatIfSimulation()">
-                <span style="font-size:11px; color:var(--text-muted);">Adjust SAP LIV Price Tolerance Limit</span>
-              </div>
-              <div class="whatif-control-item">
-                <label style="font-size:12px; font-weight:600; color:var(--text-secondary);">
-                  Quantity Variance Tolerance (DQ): <span id="labelWhatIfQty" style="color:var(--brand-primary);">0%</span>
-                </label>
-                <input type="range" class="whatif-slider" id="sliderWhatIfQty" min="0" max="20" value="0" oninput="app.runWhatIfSimulation()">
-                <span style="font-size:11px; color:var(--text-muted);">Allow partial over-delivery thresholds</span>
-              </div>
-              <div class="whatif-control-item">
-                <label style="font-size:12px; font-weight:600; color:var(--text-secondary);">
-                  Quality Inspection Strictness: <span id="labelWhatIfQM" style="color:var(--brand-primary);">Zero Defects</span>
-                </label>
-                <select class="sap-select" id="selectWhatIfQM" onchange="app.runWhatIfSimulation()" style="height:32px; font-size:12px;">
-                  <option value="STRICT">Strict (Zero Defects Allowed)</option>
-                  <option value="CONDITIONAL">Conditional (Allow Minor Defects)</option>
-                </select>
-                <span style="font-size:11px; color:var(--text-muted);">SAP QM Lot Usage Decision Override</span>
-              </div>
-            </div>
-            <div class="whatif-result-card" id="whatIfResultBox">
-              <!-- Dynamically populated simulation outcome -->
-            </div>
-          </div>
 
-          <div class="decision-center-grid">
-            <!-- Left: Invoice Decision Queue -->
-            <div class="decision-list-col">
-              <div class="decision-list-header">
-                <span>Decision Queue</span>
-                <span id="decisionQueueCount" style="color:var(--text-muted);">10 Invoices</span>
+            <!-- Interactive What-If & Stress Test Simulator Toggle -->
+            <div class="whatif-panel" id="whatifPanel" style="display:none;">
+              <div class="whatif-header">
+                <div class="whatif-title">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 20v-6M6 20V10M18 20V4"></path>
+                  </svg>
+                  <span>Interactive What-If & Stress Test Simulator</span>
+                </div>
+                <div style="display:flex; gap:8px;">
+                  <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.resetWhatIf()">Reset Defaults</button>
+                  <button class="sap-btn sap-btn-ghost sap-btn-sm" onclick="app.toggleWhatIfPanel()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    <span>Close</span>
+                  </button>
+                </div>
               </div>
-              <div id="decisionCardList">
-                <!-- Cards populated by JS -->
+              <div class="whatif-controls-grid">
+                <div class="whatif-control-item">
+                  <label style="font-size:12px; font-weight:600; color:var(--text-secondary);">
+                    Price Variance Tolerance (PP): <span id="labelWhatIfPrice" style="color:var(--brand-primary);">5%</span>
+                  </label>
+                  <input type="range" class="whatif-slider" id="sliderWhatIfPrice" min="0" max="25" value="5" oninput="app.runWhatIfSimulation()">
+                  <span style="font-size:11px; color:var(--text-muted);">Adjust SAP LIV Price Tolerance Limit</span>
+                </div>
+                <div class="whatif-control-item">
+                  <label style="font-size:12px; font-weight:600; color:var(--text-secondary);">
+                    Quantity Variance Tolerance (DQ): <span id="labelWhatIfQty" style="color:var(--brand-primary);">0%</span>
+                  </label>
+                  <input type="range" class="whatif-slider" id="sliderWhatIfQty" min="0" max="20" value="0" oninput="app.runWhatIfSimulation()">
+                  <span style="font-size:11px; color:var(--text-muted);">Allow partial over-delivery thresholds</span>
+                </div>
+                <div class="whatif-control-item">
+                  <label style="font-size:12px; font-weight:600; color:var(--text-secondary);">
+                    Quality Inspection Strictness: <span id="labelWhatIfQM" style="color:var(--brand-primary);">Zero Defects</span>
+                  </label>
+                  <select class="sap-select" id="selectWhatIfQM" onchange="app.runWhatIfSimulation()" style="height:32px; font-size:12px;">
+                    <option value="STRICT">Strict (Zero Defects Allowed)</option>
+                    <option value="CONDITIONAL">Conditional (Allow Minor Defects)</option>
+                  </select>
+                  <span style="font-size:11px; color:var(--text-muted);">SAP QM Lot Usage Decision Override</span>
+                </div>
+              </div>
+              <div class="whatif-result-card" id="whatIfResultBox">
+                <!-- Dynamically populated simulation outcome -->
               </div>
             </div>
 
-            <!-- Right: Selected Invoice Decision Workspace -->
-            <div class="decision-context-col" id="decisionWorkspaceCol">
+            <!-- Full-Screen Selected Invoice Decision Workspace -->
+            <div class="decision-context-col" id="decisionWorkspaceCol" style="width: 100%;">
               <!-- Populated by JS: Top 5-Questions, SAP Context Strip, 3-Way Match, Evidence, Explainer, Story -->
             </div>
           </div>
@@ -2244,6 +2305,39 @@
       </div>
       <div class="sap-modal-footer">
         <button class="sap-btn sap-btn-secondary" onclick="app.closeModal('modalPayload')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================== -->
+  <!-- MODAL: INBOUND SOURCE DOCUMENT & ARTIFACT PREVIEW                      -->
+  <!-- ====================================================================== -->
+  <div id="modalDocPreview" class="sap-modal-overlay" style="display: none;">
+    <div class="sap-modal" style="width: 1000px; max-width: 95vw; max-height: 92vh; display: flex; flex-direction: column;">
+      <div class="sap-modal-header" style="flex-shrink: 0;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div class="sap-modal-title" id="docPreviewModalTitle">Source Document Preview</div>
+          <span id="docPreviewChannelBadge"></span>
+        </div>
+        <button class="sap-btn sap-btn-ghost sap-btn-sm" onclick="app.closeModal('modalDocPreview')" title="Close Modal">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="sap-modal-body" id="docPreviewModalBody" style="flex: 1; overflow-y: auto; padding: 16px 20px;">
+        <!-- Injected dynamically by JS -->
+      </div>
+      <div class="sap-modal-footer" id="docPreviewModalFooter" style="flex-shrink: 0; display:flex; justify-content:space-between; align-items:center;">
+        <div id="docPreviewModalFooterInfo" style="font-size:12px; color:var(--text-muted);"></div>
+        <div style="display:flex; gap:8px;">
+          <button class="sap-btn sap-btn-secondary" onclick="app.closeModal('modalDocPreview')">Close</button>
+          <a id="btnDocDownload" class="sap-btn sap-btn-secondary" href="#" target="_blank" download style="display:inline-flex; align-items:center; gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span>Open Artifact</span>
+          </a>
+          <button id="btnDocInspectDecision" class="sap-btn sap-btn-primary" onclick="">
+            <span>Inspect in Decision Center</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>

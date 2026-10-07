@@ -30,6 +30,8 @@ class InvoiceDecisionApp {
   constructor() {
     this.invoices = [];
     this.selectedInvoiceId = 'INV-2026-00001';
+    this.isDecisionDetailActive = false;
+    this._navigatingToDetail = false;
     this.activeView = 'landing';
     this.activeMockPortal = 'physical';
     this.integrationMessages = [];
@@ -203,6 +205,13 @@ class InvoiceDecisionApp {
   switchView(viewName) {
     this.activeView = viewName;
 
+    if (viewName === 'decisionCenter') {
+      if (!this._navigatingToDetail) {
+        this.isDecisionDetailActive = false;
+      }
+      this._navigatingToDetail = false;
+    }
+
     // Update Sidebar Active Class
     document.querySelectorAll('.sidebar-nav-item').forEach((item) => {
       if (item.getAttribute('data-view') === viewName) {
@@ -234,6 +243,7 @@ class InvoiceDecisionApp {
   }
 
   updateBreadcrumbsAndHeader(viewName) {
+    const navBc = document.getElementById('appBreadcrumbs');
     const bcActive = document.getElementById('breadcrumbActiveItem');
     const pageTitle = document.getElementById('pageHeaderTitle');
     const pageSub = document.getElementById('pageHeaderSubtitle');
@@ -273,17 +283,33 @@ class InvoiceDecisionApp {
           </button>
         `,
       },
-      decisionCenter: {
-        bc: `Operations / Decision Center / ${this.selectedInvoiceId}`,
-        title: 'Invoice Decision Center',
-        sub: 'Cognitive validation, three-way matching, explainable rationale, and Clean Core S/4HANA actions.',
-        actions: `
-          <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.toggleWhatIfPanel()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--brand-primary)" stroke-width="2"><path d="M12 20v-6M6 20V10M18 20V4"></path></svg>
-            <span>What-If Simulator</span>
-          </button>
-        `,
-      },
+      decisionCenter: this.isDecisionDetailActive
+        ? {
+            bc: `Decision Center / Decision Queue / ${this.selectedInvoiceId}`,
+            title: `Invoice Decision: ${this.selectedInvoiceId}`,
+            sub: this.getSelectedInvoiceSubtitle(),
+            actions: `
+              <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.backToDecisionQueue()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                <span>Back to Queue</span>
+              </button>
+              <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.toggleWhatIfPanel()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--brand-primary)" stroke-width="2"><path d="M12 20v-6M6 20V10M18 20V4"></path></svg>
+                <span>What-If Simulator</span>
+              </button>
+            `,
+          }
+        : {
+            bc: 'Decision Center / Decision Queue',
+            title: 'Invoice Decision Center',
+            sub: 'Operational decision worklist prioritized by commercial impact and statutory SLA risk.',
+            actions: `
+              <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.switchView('inbox')">
+                <span>View Invoice Inbox</span>
+                ${ICONS.arrowRight}
+              </button>
+            `,
+          },
       reconciliation: {
         bc: 'Reconciliation & Approvals / PO & 3-Way Match',
         title: 'Three-Way Match & LIV Verification',
@@ -333,7 +359,39 @@ class InvoiceDecisionApp {
     };
 
     const cfg = viewConfig[viewName] || viewConfig.landing;
-    if (bcActive) bcActive.innerText = cfg.bc;
+
+    if (navBc) {
+      if (viewName === 'decisionCenter') {
+        if (this.isDecisionDetailActive) {
+          navBc.innerHTML = `
+            <span class="breadcrumb-item" onclick="app.switchView('landing')">Home</span>
+            <span class="breadcrumb-separator"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></span>
+            <span class="breadcrumb-item" onclick="app.backToDecisionQueue()" style="cursor:pointer;">Decision Center</span>
+            <span class="breadcrumb-separator"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></span>
+            <span class="breadcrumb-item" onclick="app.backToDecisionQueue()" style="cursor:pointer; color:var(--brand-primary); font-weight:600;">Decision Queue</span>
+            <span class="breadcrumb-separator"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></span>
+            <span class="breadcrumb-item current" id="breadcrumbActiveItem">${this.selectedInvoiceId}</span>
+          `;
+        } else {
+          navBc.innerHTML = `
+            <span class="breadcrumb-item" onclick="app.switchView('landing')">Home</span>
+            <span class="breadcrumb-separator"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></span>
+            <span class="breadcrumb-item">Decision Center</span>
+            <span class="breadcrumb-separator"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></span>
+            <span class="breadcrumb-item current" id="breadcrumbActiveItem">Decision Queue</span>
+          `;
+        }
+      } else {
+        navBc.innerHTML = `
+          <span class="breadcrumb-item" onclick="app.switchView('landing')">Home</span>
+          <span class="breadcrumb-separator"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></span>
+          <span class="breadcrumb-item current" id="breadcrumbActiveItem">${cfg.bc}</span>
+        `;
+      }
+    } else if (bcActive) {
+      bcActive.innerText = cfg.bc;
+    }
+
     if (pageTitle) pageTitle.innerText = cfg.title;
     if (pageSub) pageSub.innerText = cfg.sub;
     if (pageActions) pageActions.innerHTML = cfg.actions;
@@ -682,47 +740,125 @@ class InvoiceDecisionApp {
   // --------------------------------------------------------------------------
   selectAndOpenDecision(invoiceId) {
     this.selectedInvoiceId = invoiceId;
+    this.isDecisionDetailActive = true;
+    this._navigatingToDetail = true;
     this.switchView('decisionCenter');
-  }
-
-  renderDecisionCenter() {
-    this.renderDecisionList();
+    const q = document.getElementById('decisionQueueContainer');
+    const d = document.getElementById('decisionDetailContainer');
+    if (q) q.style.display = 'none';
+    if (d) d.style.display = 'block';
+    this.updateBreadcrumbsAndHeader('decisionCenter');
     this.renderDecisionWorkspace();
     this.runWhatIfSimulation();
   }
 
-  renderDecisionList() {
-    const listContainer = document.getElementById('decisionCardList');
-    if (!listContainer) return;
+  backToDecisionQueue() {
+    this.isDecisionDetailActive = false;
+    this._navigatingToDetail = false;
+    const q = document.getElementById('decisionQueueContainer');
+    const d = document.getElementById('decisionDetailContainer');
+    if (q) q.style.display = 'block';
+    if (d) d.style.display = 'none';
+    this.updateBreadcrumbsAndHeader('decisionCenter');
+    this.renderDecisionTable();
+  }
 
-    listContainer.innerHTML = this.invoices
+  renderDecisionCenter() {
+    const q = document.getElementById('decisionQueueContainer');
+    const d = document.getElementById('decisionDetailContainer');
+    if (this.isDecisionDetailActive) {
+      if (q) q.style.display = 'none';
+      if (d) d.style.display = 'block';
+      this.renderDecisionWorkspace();
+      this.runWhatIfSimulation();
+    } else {
+      if (q) q.style.display = 'block';
+      if (d) d.style.display = 'none';
+      this.renderDecisionTable();
+    }
+  }
+
+  renderDecisionTable() {
+    const tbody = document.getElementById('decisionQueueTableBody');
+    if (!tbody) return;
+
+    const searchTerm = (document.getElementById('decisionQueueSearch')?.value || '').toLowerCase();
+    const filterDecision = document.getElementById('decisionQueueFilter')?.value || 'ALL';
+
+    const filtered = this.invoices.filter((item) => {
+      if (filterDecision !== 'ALL' && item.aiDecision.recommendation !== filterDecision) return false;
+      if (searchTerm) {
+        const text = `${item.invoice.invoiceId} ${item.invoice.invoiceNumber} ${item.invoice.supplierName} ${item.invoice.purchaseOrderReference || ''}`.toLowerCase();
+        if (!text.includes(searchTerm)) return false;
+      }
+      return true;
+    });
+
+    const badge = document.getElementById('decisionQueueTableBadge');
+    if (badge) badge.innerText = `${filtered.length} Invoices`;
+
+    tbody.innerHTML = filtered
       .map((item) => {
-        const isSelected = item.invoice.invoiceId === this.selectedInvoiceId;
-        const recBadge = this.getRecommendationBadge(item.aiDecision.recommendation);
+        const { invoice, aiDecision, businessOwner } = item;
+        const recBadge = this.getRecommendationBadge(aiDecision.recommendation);
+        const statusBadge = this.getProcessingStatusBadge(invoice.processingStatus);
+        const riskBadge = this.getRiskBadge(aiDecision.riskLevel);
+        const channelBadge = this.getChannelBadge(invoice.sourceChannel);
 
         return `
-          <div class="invoice-item-card ${isSelected ? 'selected' : ''}" onclick="app.onSelectInvoice('${item.invoice.invoiceId}')">
-            <div class="invoice-card-top">
-              <span class="invoice-card-title">${item.invoice.invoiceId}</span>
-              ${recBadge}
-            </div>
-            <div class="invoice-card-vendor">${item.invoice.supplierName}</div>
-            <div class="invoice-card-meta">
-              <span style="font-weight:600; color:var(--text-primary);">₹${(item.invoice.totalGrossAmount || 0).toLocaleString('en-IN')}</span>
-              <span style="color:var(--text-muted); font-size:11px;">${item.invoice.purchaseOrderReference ? 'PO ' + item.invoice.purchaseOrderReference : 'Non-PO'}</span>
-            </div>
-          </div>
+          <tr class="decision-queue-row" onclick="app.selectAndOpenDecision('${invoice.invoiceId}')" title="Click to open full-screen decision workspace">
+            <td>
+              <div style="font-weight:700; color:var(--brand-primary); font-size:13px;">${invoice.invoiceId}</div>
+              <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">${invoice.invoiceNumber} &bull; ${channelBadge}</div>
+            </td>
+            <td>
+              <a href="#" style="color:var(--brand-primary); font-weight:600; text-decoration:none;" onclick="event.stopPropagation(); app.openSupplierDrawer('${invoice.supplierName}'); return false;">
+                ${invoice.supplierName}
+              </a>
+              <div style="font-size:11px; color:var(--text-muted); font-family:var(--font-mono);">${invoice.supplierTaxId}</div>
+            </td>
+            <td>
+              <strong style="font-size:13px; color:var(--text-primary);">₹${(invoice.totalGrossAmount || 0).toLocaleString('en-IN')}</strong>
+            </td>
+            <td>
+              ${invoice.purchaseOrderReference ? `<code style="font-size:11px;">${invoice.purchaseOrderReference}</code>` : '<span class="sap-badge sap-badge-neutral" style="font-size:10px;">NON-PO</span>'}
+            </td>
+            <td>${statusBadge}</td>
+            <td>
+              <div style="display:flex; align-items:center; gap:6px;">
+                ${recBadge}
+                <span style="font-size:11px; font-weight:600; color:var(--text-secondary);">${aiDecision.confidenceScore}%</span>
+              </div>
+            </td>
+            <td>${riskBadge}</td>
+            <td>
+              <div style="font-size:12px; font-weight:600; color:var(--text-primary);">${businessOwner.name}</div>
+              <div style="font-size:11px; color:var(--text-muted);">${businessOwner.department}</div>
+            </td>
+            <td style="text-align:right;" onclick="event.stopPropagation()">
+              <div style="display:inline-flex; gap:6px;">
+                <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.openDocPreview('${invoice.invoiceId}')" title="View Source Document & Artifacts">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                  <span>Doc</span>
+                </button>
+                <button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.selectAndOpenDecision('${invoice.invoiceId}')">
+                  <span>Inspect</span>
+                  ${ICONS.arrowRight}
+                </button>
+              </div>
+            </td>
+          </tr>
         `;
       })
       .join('');
   }
 
+  renderDecisionList() {
+    // Retained for backward-compatibility
+  }
+
   onSelectInvoice(invoiceId) {
-    this.selectedInvoiceId = invoiceId;
-    this.updateBreadcrumbsAndHeader('decisionCenter');
-    this.renderDecisionList();
-    this.renderDecisionWorkspace();
-    this.runWhatIfSimulation();
+    this.selectAndOpenDecision(invoiceId);
   }
 
   renderDecisionWorkspace() {
@@ -781,7 +917,11 @@ class InvoiceDecisionApp {
             <div style="font-size:13px; font-weight:600; color:#188038; margin-top:4px;">
               ${primaryAction}
             </div>
-            <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+            <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; align-items:center;">
+              <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.openDocPreview('${invoice.invoiceId}')" title="Inspect original inbound document or fixture">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                <span>View Source Document</span>
+              </button>
               ${
                 invoice.processingStatus === 'POSTED_TO_SAP'
                   ? `<span class="sap-badge sap-badge-success">${ICONS.check} POSTED TO SAP S/4HANA (BELNR ACTIVE)</span>`
@@ -1581,63 +1721,89 @@ class InvoiceDecisionApp {
       );
 
       container.innerHTML = `
-        <div class="sap-card" style="padding:24px; margin-bottom:20px;">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+        <div class="sap-card" style="margin-bottom:20px;">
+          <div class="sap-card-header" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
             <div>
               <div class="sap-card-title" style="display:flex; align-items:center; gap:8px;">
                 ${ICONS.scan}
-                <span>Physical / Plant Gate Scanner Intake Simulator</span>
+                <span>Physical / Gate Scanner Intake Gateway</span>
+                <span class="sap-badge sap-badge-info">${physicalInvoices.length} Documents</span>
               </div>
-              <p style="font-size:13px; color:var(--text-secondary); margin-top:4px;">
-                Simulates physical invoice scanning at security gates and mailrooms. Normalizes scan metadata via SAP Document Information Extraction.
-              </p>
+              <span class="sap-card-subtitle">
+                Simulates paper invoices scanned at plant security gates and receiving desks. OCR extraction metadata verified via SAP Document Information Extraction.
+              </span>
               <div style="font-size:11px; color:var(--brand-primary); margin-top:6px; font-family:var(--font-mono); font-weight:600;">
-                Persistent Source: mock-data/invoices/physical/ (${physicalInvoices.length} on-disk records)
+                On-Disk Source: mock-data/inbound/physical-gate-scanner/ (${physicalInvoices.length} PDF source documents & metadata files)
               </div>
             </div>
-            <button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.simulateIntake('physical')">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M12 5v14M5 12h14"/></svg>
-              <span>Scan New Paper Invoice</span>
-            </button>
+            <div style="display:flex; gap:8px;">
+              <button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.simulateIntake('physical')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M12 5v14M5 12h14"/></svg>
+                <span>Scan New Paper Invoice</span>
+              </button>
+            </div>
           </div>
 
-          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(360px, 1fr)); gap:16px; margin-top:16px;">
-            ${physicalInvoices.map((inv) => {
-              const recBadge = this.getRecommendationBadge(inv.aiDecision.recommendation);
-              const meta = inv.invoice.channelMetadata || {};
-              return `
-                <div style="background:var(--surface-subtle); border:1px solid var(--border-main); border-radius:var(--radius-card); padding:16px; display:flex; flex-direction:column; justify-content:space-between; gap:12px;">
-                  <div>
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
-                      <div>
-                        <div style="font-weight:700; font-size:14px; color:var(--brand-primary);">${inv.invoice.invoiceId}</div>
-                        <div style="font-size:12px; font-weight:600; color:var(--text-primary); margin-top:2px;"># ${inv.invoice.invoiceNumber}</div>
-                      </div>
-                      ${recBadge}
-                    </div>
-
-                    <div style="font-size:13px; color:var(--text-primary); font-weight:600; margin-bottom:8px;">
-                      ${inv.invoice.supplierName}
-                    </div>
-
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:11px; background:var(--surface); padding:8px 10px; border-radius:var(--radius-sm); border:1px solid var(--border-subtle); margin-bottom:8px;">
-                      <div><span style="color:var(--text-muted);">Amount:</span> <strong>₹${(inv.invoice.totalGrossAmount || 0).toLocaleString('en-IN')}</strong></div>
-                      <div><span style="color:var(--text-muted);">PO Ref:</span> ${inv.invoice.purchaseOrderReference || 'Non-PO'}</div>
-                      <div><span style="color:var(--text-muted);">Scanner:</span> ${meta.scannerLocation || 'Gate 2'}</div>
-                      <div><span style="color:var(--text-muted);">Operator:</span> ${meta.operatorId || 'OP-01'}</div>
-                    </div>
-                  </div>
-
-                  <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border-subtle); padding-top:10px;">
-                    <span class="sap-badge sap-badge-success" style="font-size:10px;">${ICONS.check} OCR ${meta.scanDpi || 300} DPI</span>
-                    <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.selectAndOpenDecision('${inv.invoice.invoiceId}')">
-                      <span>Inspect in Decision Center</span>
-                      ${ICONS.arrowRight}
-                    </button>
-                  </div>
-                </div>
-              `;
-            }).join('')}
+          <div class="sap-table-wrapper">
+            <table class="sap-table">
+              <thead>
+                <tr>
+                  <th>Invoice ID</th>
+                  <th>Supplier</th>
+                  <th>Invoice #</th>
+                  <th>Amount</th>
+                  <th>PO Reference</th>
+                  <th>Plant / Scanner</th>
+                  <th>Operator</th>
+                  <th>OCR Status</th>
+                  <th>Recommendation</th>
+                  <th style="text-align:right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${physicalInvoices
+                  .map((inv) => {
+                    const recBadge = this.getRecommendationBadge(inv.aiDecision.recommendation);
+                    const meta = inv.invoice.channelMetadata || {};
+                    return `
+                      <tr>
+                        <td>
+                          <div style="font-weight:700; color:var(--brand-primary);">${inv.invoice.invoiceId}</div>
+                        </td>
+                        <td>
+                          <a href="#" style="color:var(--brand-primary); font-weight:600; text-decoration:none;" onclick="app.openSupplierDrawer('${inv.invoice.supplierName}'); return false;">
+                            ${inv.invoice.supplierName}
+                          </a>
+                        </td>
+                        <td><strong>${inv.invoice.invoiceNumber}</strong></td>
+                        <td><strong>₹${(inv.invoice.totalGrossAmount || 0).toLocaleString('en-IN')}</strong></td>
+                        <td>${inv.invoice.purchaseOrderReference ? `<code>${inv.invoice.purchaseOrderReference}</code>` : '<span class="sap-badge sap-badge-neutral" style="font-size:10px;">NON-PO</span>'}</td>
+                        <td>${meta.scannerLocation || 'Plant 1010 Security Gate 2'}</td>
+                        <td><code>${meta.operatorId || 'OP-4491'}</code></td>
+                        <td>
+                          <span class="sap-badge sap-badge-success" style="font-size:10px;">
+                            ${ICONS.check} ${meta.scanDpi || 300} DPI (98.4%)
+                          </span>
+                        </td>
+                        <td>${recBadge}</td>
+                        <td style="text-align:right;">
+                          <div style="display:inline-flex; gap:6px;">
+                            <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.openDocPreview('${inv.invoice.invoiceId}')" title="View actual scanned PDF document">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                              <span>View Scanned PDF</span>
+                            </button>
+                            <button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.selectAndOpenDecision('${inv.invoice.invoiceId}')" title="Inspect in Decision Center">
+                              <span>Inspect</span>
+                              ${ICONS.arrowRight}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    `;
+                  })
+                  .join('')}
+              </tbody>
+            </table>
           </div>
         </div>
       `;
@@ -1647,66 +1813,102 @@ class InvoiceDecisionApp {
       );
 
       container.innerHTML = `
-        <div class="sap-card" style="padding:24px; margin-bottom:20px;">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+        <div class="sap-card" style="margin-bottom:20px;">
+          <div class="sap-card-header" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
             <div>
               <div class="sap-card-title" style="display:flex; align-items:center; gap:8px;">
                 ${ICONS.mail}
-                <span>Vendor Invoice Inbound Mailbox (invoices@enterprise.com)</span>
+                <span>Vendor Invoice AP Mailbox Gateway (invoices@enterprise.com)</span>
+                <span class="sap-badge sap-badge-info">${emailInvoices.length} Messages</span>
               </div>
-              <p style="font-size:13px; color:var(--text-secondary); margin-top:4px;">
-                Electronic vendor invoices ingested from shared AP accounts. Normalizes email sender, PDF attachments, and cryptographic hashes.
-              </p>
+              <span class="sap-card-subtitle">
+                Inbound AP email mailbox parser. Ingests RFC 822 email fixtures, checks SPF/DKIM authentication, and extracts PDF attachments.
+              </span>
               <div style="font-size:11px; color:var(--brand-primary); margin-top:6px; font-family:var(--font-mono); font-weight:600;">
-                Persistent Source: mock-data/invoices/email/ (${emailInvoices.length} on-disk records)
+                On-Disk Source: mock-data/inbound/vendor-ap-mailbox/ (${emailInvoices.length} .eml fixtures & PDF attachments)
               </div>
             </div>
-            <button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.simulateIntake('email')">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M12 5v14M5 12h14"/></svg>
-              <span>Simulate Inbound AP Email</span>
-            </button>
+            <div style="display:flex; gap:8px;">
+              <button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.simulateIntake('email')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M12 5v14M5 12h14"/></svg>
+                <span>Simulate Inbound AP Email</span>
+              </button>
+            </div>
           </div>
 
-          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(360px, 1fr)); gap:16px; margin-top:16px;">
-            ${emailInvoices.map((inv) => {
-              const recBadge = this.getRecommendationBadge(inv.aiDecision.recommendation);
-              const meta = inv.invoice.channelMetadata || {};
-              return `
-                <div style="background:var(--surface-subtle); border:1px solid var(--border-main); border-radius:var(--radius-card); padding:16px; display:flex; flex-direction:column; justify-content:space-between; gap:12px;">
-                  <div>
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
-                      <div>
-                        <div style="font-weight:700; font-size:14px; color:var(--brand-primary);">${inv.invoice.invoiceId}</div>
-                        <div style="font-size:12px; font-weight:600; color:var(--text-primary); margin-top:2px;"># ${inv.invoice.invoiceNumber}</div>
-                      </div>
-                      ${recBadge}
-                    </div>
-
-                    <div style="font-size:13px; color:var(--text-primary); font-weight:600; margin-bottom:4px;">
-                      ${inv.invoice.supplierName}
-                    </div>
-
-                    <div style="font-size:11px; color:var(--text-secondary); margin-bottom:8px;">
-                      <strong>From:</strong> <code>${meta.emailSender || 'vendor@example.com'}</code>
-                    </div>
-
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:11px; background:var(--surface); padding:8px 10px; border-radius:var(--radius-sm); border:1px solid var(--border-subtle); margin-bottom:8px;">
-                      <div><span style="color:var(--text-muted);">Amount:</span> <strong>₹${(inv.invoice.totalGrossAmount || 0).toLocaleString('en-IN')}</strong></div>
-                      <div><span style="color:var(--text-muted);">PO Ref:</span> ${inv.invoice.purchaseOrderReference || 'Non-PO'}</div>
-                      <div style="grid-column: span 2;"><span style="color:var(--text-muted);">Attachment:</span> <code>${meta.attachmentName || 'invoice.pdf'}</code></div>
-                    </div>
-                  </div>
-
-                  <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border-subtle); padding-top:10px;">
-                    <span class="sap-badge sap-badge-info" style="font-size:10px;">${ICONS.check} SPF/DKIM Verified</span>
-                    <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.selectAndOpenDecision('${inv.invoice.invoiceId}')">
-                      <span>Inspect in Decision Center</span>
-                      ${ICONS.arrowRight}
-                    </button>
-                  </div>
-                </div>
-              `;
-            }).join('')}
+          <div class="sap-table-wrapper">
+            <table class="sap-table">
+              <thead>
+                <tr>
+                  <th>Invoice ID</th>
+                  <th>Supplier</th>
+                  <th>Sender</th>
+                  <th>Subject</th>
+                  <th>Amount</th>
+                  <th>PO Reference</th>
+                  <th>Attachment</th>
+                  <th>SPF / DKIM</th>
+                  <th>Status</th>
+                  <th style="text-align:right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${emailInvoices
+                  .map((inv) => {
+                    const statusBadge = this.getProcessingStatusBadge(inv.invoice.processingStatus);
+                    const meta = inv.invoice.channelMetadata || {};
+                    return `
+                      <tr>
+                        <td>
+                          <div style="font-weight:700; color:var(--brand-primary);">${inv.invoice.invoiceId}</div>
+                        </td>
+                        <td>
+                          <a href="#" style="color:var(--brand-primary); font-weight:600; text-decoration:none;" onclick="app.openSupplierDrawer('${inv.invoice.supplierName}'); return false;">
+                            ${inv.invoice.supplierName}
+                          </a>
+                        </td>
+                        <td><code>${meta.emailSender || 'vendor@example.com'}</code></td>
+                        <td>
+                          <div style="max-width:220px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${meta.emailSubject || ''}">
+                            ${meta.emailSubject || 'Tax Invoice ' + inv.invoice.invoiceNumber}
+                          </div>
+                        </td>
+                        <td><strong>₹${(inv.invoice.totalGrossAmount || 0).toLocaleString('en-IN')}</strong></td>
+                        <td>${inv.invoice.purchaseOrderReference ? `<code>${inv.invoice.purchaseOrderReference}</code>` : '<span class="sap-badge sap-badge-neutral" style="font-size:10px;">NON-PO</span>'}</td>
+                        <td>
+                          <span class="sap-badge sap-badge-neutral" style="font-size:10px; font-family:var(--font-mono);">
+                            ${ICONS.document} ${meta.attachmentName || inv.invoice.invoiceId + '.pdf'}
+                          </span>
+                        </td>
+                        <td>
+                          <div style="display:flex; flex-direction:column; gap:2px;">
+                            <span class="sap-badge sap-badge-success" style="font-size:9px;">SPF: PASS</span>
+                            <span class="sap-badge sap-badge-success" style="font-size:9px;">DKIM: PASS</span>
+                          </div>
+                        </td>
+                        <td>${statusBadge}</td>
+                        <td style="text-align:right;">
+                          <div style="display:inline-flex; gap:6px;">
+                            <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.openDocPreview('${inv.invoice.invoiceId}', 'email')" title="View RFC 822 Email fixture">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                              <span>Email</span>
+                            </button>
+                            <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.openDocPreview('${inv.invoice.invoiceId}', 'pdf')" title="View Attached PDF Invoice">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                              <span>PDF</span>
+                            </button>
+                            <button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.selectAndOpenDecision('${inv.invoice.invoiceId}')" title="Inspect in Decision Center">
+                              <span>Inspect</span>
+                              ${ICONS.arrowRight}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    `;
+                  })
+                  .join('')}
+              </tbody>
+            </table>
           </div>
         </div>
       `;
@@ -1716,66 +1918,98 @@ class InvoiceDecisionApp {
       );
 
       container.innerHTML = `
-        <div class="sap-card" style="padding:24px; margin-bottom:20px;">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+        <div class="sap-card" style="margin-bottom:20px;">
+          <div class="sap-card-header" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
             <div>
               <div class="sap-card-title" style="display:flex; align-items:center; gap:8px;">
                 ${ICONS.invoice}
                 <span>Government E-Invoice / IRP Gateway (GST DRC)</span>
+                <span class="sap-badge sap-badge-info">${einvoices.length} Payload Invoices</span>
               </div>
-              <p style="font-size:13px; color:var(--text-secondary); margin-top:4px;">
-                Statutory B2B electronic invoice push carrying cryptographic 64-character Invoice Reference Number (IRN) and QR digital signatures.
-              </p>
+              <span class="sap-card-subtitle">
+                Direct statutory B2B electronic invoice push from Invoice Registration Portal (IRP). Carries official 64-char IRN, QR cryptographic signatures, and 48-hour statutory validation SLA.
+              </span>
               <div style="font-size:11px; color:var(--brand-primary); margin-top:6px; font-family:var(--font-mono); font-weight:600;">
-                Persistent Source: mock-data/invoices/einvoice/ (${einvoices.length} on-disk records)
+                On-Disk Source: mock-data/inbound/government-einvoice-irp/ (${einvoices.length} JSON payloads & PDF documents)
               </div>
             </div>
-            <button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.simulateIntake('einvoice')">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M12 5v14M5 12h14"/></svg>
-              <span>Simulate E-Invoice Portal Push</span>
-            </button>
+            <div style="display:flex; gap:8px;">
+              <button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.simulateIntake('einvoice')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M12 5v14M5 12h14"/></svg>
+                <span>Simulate E-Invoice Portal Push</span>
+              </button>
+            </div>
           </div>
 
-          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(360px, 1fr)); gap:16px; margin-top:16px;">
-            ${einvoices.map((inv) => {
-              const recBadge = this.getRecommendationBadge(inv.aiDecision.recommendation);
-              const meta = inv.invoice.channelMetadata || {};
-              return `
-                <div style="background:var(--surface-subtle); border:1px solid var(--border-main); border-radius:var(--radius-card); padding:16px; display:flex; flex-direction:column; justify-content:space-between; gap:12px;">
-                  <div>
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
-                      <div>
-                        <div style="font-weight:700; font-size:14px; color:var(--brand-primary);">${inv.invoice.invoiceId}</div>
-                        <div style="font-size:12px; font-weight:600; color:var(--text-primary); margin-top:2px;"># ${inv.invoice.invoiceNumber}</div>
-                      </div>
-                      ${recBadge}
-                    </div>
-
-                    <div style="font-size:13px; color:var(--text-primary); font-weight:600; margin-bottom:4px;">
-                      ${inv.invoice.supplierName}
-                    </div>
-
-                    <div style="font-size:11px; color:var(--text-secondary); margin-bottom:8px; word-break:break-all;">
-                      <strong>IRN:</strong> <code style="font-size:10px;">${meta.irn || 'N/A'}</code>
-                    </div>
-
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:11px; background:var(--surface); padding:8px 10px; border-radius:var(--radius-sm); border:1px solid var(--border-subtle); margin-bottom:8px;">
-                      <div><span style="color:var(--text-muted);">Amount:</span> <strong>₹${(inv.invoice.totalGrossAmount || 0).toLocaleString('en-IN')}</strong></div>
-                      <div><span style="color:var(--text-muted);">PO Ref:</span> ${inv.invoice.purchaseOrderReference || 'Non-PO'}</div>
-                      <div style="grid-column: span 2;"><span style="color:var(--text-muted);">Ack No:</span> ${meta.acknowledgementNumber || '122619945001'} (${meta.acknowledgementDate || '2026-10-04'})</div>
-                    </div>
-                  </div>
-
-                  <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border-subtle); padding-top:10px;">
-                    <span class="sap-badge sap-badge-warning" style="font-size:10px;">${ICONS.alertTriangle} 48h Statutory SLA Active</span>
-                    <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.selectAndOpenDecision('${inv.invoice.invoiceId}')">
-                      <span>Inspect in Decision Center</span>
-                      ${ICONS.arrowRight}
-                    </button>
-                  </div>
-                </div>
-              `;
-            }).join('')}
+          <div class="sap-table-wrapper">
+            <table class="sap-table">
+              <thead>
+                <tr>
+                  <th>Invoice ID</th>
+                  <th>Supplier</th>
+                  <th>Invoice #</th>
+                  <th>IRN (64-Char Hash)</th>
+                  <th>Amount</th>
+                  <th>PO Reference</th>
+                  <th>Ack No</th>
+                  <th>Ack Date</th>
+                  <th>Reconciliation</th>
+                  <th style="text-align:right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${einvoices
+                  .map((inv) => {
+                    const meta = inv.invoice.channelMetadata || {};
+                    const irn = meta.irn || '4f28d8b4e78a6327e4369f8c6501237a6b83f0d2c94178523091abcef5410982';
+                    const shortIrn = irn.slice(0, 12) + '...' + irn.slice(-8);
+                    return `
+                      <tr>
+                        <td>
+                          <div style="font-weight:700; color:var(--brand-primary);">${inv.invoice.invoiceId}</div>
+                        </td>
+                        <td>
+                          <a href="#" style="color:var(--brand-primary); font-weight:600; text-decoration:none;" onclick="app.openSupplierDrawer('${inv.invoice.supplierName}'); return false;">
+                            ${inv.invoice.supplierName}
+                          </a>
+                        </td>
+                        <td><strong>${inv.invoice.invoiceNumber}</strong></td>
+                        <td>
+                          <code style="font-size:11px; color:var(--text-secondary); cursor:pointer;" title="${irn} (Click to copy)" onclick="navigator.clipboard.writeText('${irn}'); app.showToast('IRN copied to clipboard', 'info');">
+                            ${shortIrn}
+                          </code>
+                        </td>
+                        <td><strong>₹${(inv.invoice.totalGrossAmount || 0).toLocaleString('en-IN')}</strong></td>
+                        <td>${inv.invoice.purchaseOrderReference ? `<code>${inv.invoice.purchaseOrderReference}</code>` : '<span class="sap-badge sap-badge-neutral" style="font-size:10px;">NON-PO</span>'}</td>
+                        <td><code>${meta.acknowledgementNumber || '112026009841'}</code></td>
+                        <td>${meta.acknowledgementDate ? meta.acknowledgementDate.split('T')[0] : '2026-10-04'}</td>
+                        <td>
+                          <span class="sap-badge sap-badge-warning" style="font-size:10px;">
+                            ${ICONS.alertTriangle} 48h SLA Active
+                          </span>
+                        </td>
+                        <td style="text-align:right;">
+                          <div style="display:inline-flex; gap:6px;">
+                            <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.openDocPreview('${inv.invoice.invoiceId}', 'payload')" title="View official government IRP JSON payload">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                              <span>IRP Payload</span>
+                            </button>
+                            <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.openDocPreview('${inv.invoice.invoiceId}', 'doc')" title="View corresponding Invoice PDF">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"></rect><line x1="6" y1="8" x2="10" y2="8"></line><line x1="6" y1="12" x2="14" y2="12"></line></svg>
+                              <span>Invoice Doc</span>
+                            </button>
+                            <button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.selectAndOpenDecision('${inv.invoice.invoiceId}')" title="Inspect in Decision Center">
+                              <span>Inspect</span>
+                              ${ICONS.arrowRight}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    `;
+                  })
+                  .join('')}
+              </tbody>
+            </table>
           </div>
         </div>
       `;
@@ -2105,6 +2339,238 @@ class InvoiceDecisionApp {
       default:
         return `<span class="sap-badge sap-badge-neutral">${status}</span>`;
     }
+  }
+
+  getRiskBadge(risk) {
+    switch (risk) {
+      case 'LOW':
+        return `<span class="sap-badge sap-badge-success">Low</span>`;
+      case 'MEDIUM':
+        return `<span class="sap-badge sap-badge-warning">Medium</span>`;
+      case 'HIGH':
+        return `<span class="sap-badge sap-badge-error">High</span>`;
+      case 'CRITICAL':
+        return `<span class="sap-badge sap-badge-error" style="font-weight:700;">Critical</span>`;
+      default:
+        return `<span class="sap-badge sap-badge-neutral">${risk || 'N/A'}</span>`;
+    }
+  }
+
+  openDocPreview(invoiceId, artifactType = '') {
+    const item = this.invoices.find((i) => i.invoice.invoiceId === invoiceId);
+    if (!item) return;
+
+    const { invoice, aiDecision } = item;
+    const channel = invoice.sourceChannel;
+    const modal = document.getElementById('modalDocPreview');
+    const titleEl = document.getElementById('docPreviewModalTitle');
+    const badgeEl = document.getElementById('docPreviewChannelBadge');
+    const bodyEl = document.getElementById('docPreviewModalBody');
+    const footerInfoEl = document.getElementById('docPreviewModalFooterInfo');
+    const downloadBtn = document.getElementById('btnDocDownload');
+    const inspectBtn = document.getElementById('btnDocInspectDecision');
+
+    if (!modal || !bodyEl) return;
+
+    titleEl.innerHTML = `Source Artifact: <strong style="color:var(--brand-primary);">${invoice.invoiceId}</strong> &bull; #${invoice.invoiceNumber}`;
+    badgeEl.innerHTML = this.getChannelBadge(channel);
+
+    if (inspectBtn) {
+      inspectBtn.onclick = () => {
+        this.closeModal('modalDocPreview');
+        this.selectAndOpenDecision(invoice.invoiceId);
+      };
+    }
+
+    if (channel === 'PHYSICAL_SCAN') {
+      const pdfUrl = `/inbound-docs/physical-gate-scanner/documents/${invoice.invoiceId}.pdf`;
+      const meta = invoice.channelMetadata || {};
+      if (downloadBtn) {
+        downloadBtn.href = pdfUrl;
+        downloadBtn.download = `${invoice.invoiceId}.pdf`;
+      }
+      if (footerInfoEl) {
+        footerInfoEl.innerHTML = `<span>On-Disk Artifact: <code>mock-data/inbound/physical-gate-scanner/documents/${invoice.invoiceId}.pdf</code></span>`;
+      }
+
+      bodyEl.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--surface-subtle); padding:10px 14px; border:1px solid var(--border-main); border-radius:var(--radius-card); margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+          <div style="display:flex; align-items:center; gap:12px; font-size:12px;">
+            <span><strong>Scanner:</strong> ${meta.scannerLocation || 'Plant 1010 Security Gate 2 Scanner'}</span>
+            <span>&bull;</span>
+            <span><strong>Operator:</strong> ${meta.operatorId || 'OP-4491'}</span>
+            <span>&bull;</span>
+            <span class="sap-badge sap-badge-success">${ICONS.check} OCR ${meta.scanDpi || 300} DPI (98.4% Confidence)</span>
+          </div>
+          <div>
+            <a href="${pdfUrl}" target="_blank" class="sap-btn sap-btn-secondary sap-btn-sm" style="display:inline-flex; align-items:center; gap:6px; text-decoration:none;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+              <span>Open PDF in Tab</span>
+            </a>
+          </div>
+        </div>
+        <div style="height:540px; width:100%; border:1px solid var(--border-main); border-radius:var(--radius-card); overflow:hidden; background:#525659;">
+          <iframe src="${pdfUrl}#toolbar=0" style="width:100%; height:100%; border:none;"></iframe>
+        </div>
+      `;
+    } else if (channel === 'EMAIL_INBOUND') {
+      const pdfUrl = `/inbound-docs/vendor-ap-mailbox/attachments/${invoice.invoiceId}.pdf`;
+      const emlUrl = `/inbound-docs/vendor-ap-mailbox/emails/email_${invoice.invoiceId}.eml`;
+      const meta = invoice.channelMetadata || {};
+      const activeTab = artifactType === 'email' ? 'email' : 'pdf';
+
+      if (downloadBtn) {
+        downloadBtn.href = activeTab === 'email' ? emlUrl : pdfUrl;
+        downloadBtn.download = activeTab === 'email' ? `email_${invoice.invoiceId}.eml` : `${invoice.invoiceId}.pdf`;
+      }
+      if (footerInfoEl) {
+        footerInfoEl.innerHTML = `<span>On-Disk Artifact: <code>mock-data/inbound/vendor-ap-mailbox/</code></span>`;
+      }
+
+      bodyEl.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid var(--border-subtle); padding-bottom:10px;">
+          <div style="display:flex; gap:8px;">
+            <button class="sap-btn ${activeTab === 'pdf' ? 'sap-btn-primary' : 'sap-btn-secondary'} sap-btn-sm" onclick="app.openDocPreview('${invoice.invoiceId}', 'pdf')">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+              <span>Attached Invoice (PDF)</span>
+            </button>
+            <button class="sap-btn ${activeTab === 'email' ? 'sap-btn-primary' : 'sap-btn-secondary'} sap-btn-sm" onclick="app.openDocPreview('${invoice.invoiceId}', 'email')">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+              <span>Email Fixture (.eml)</span>
+            </button>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="sap-badge sap-badge-success">${ICONS.check} SPF: PASS</span>
+            <span class="sap-badge sap-badge-success">${ICONS.check} DKIM: PASS</span>
+          </div>
+        </div>
+
+        ${activeTab === 'email' ? `
+          <div style="background:var(--surface); border:1px solid var(--border-main); border-radius:var(--radius-card); padding:16px;">
+            <table style="width:100%; border-collapse:collapse; margin-bottom:14px; font-size:12px;">
+              <tr>
+                <td style="width:80px; font-weight:600; color:var(--text-muted); padding:4px 0;">From:</td>
+                <td><strong>${invoice.supplierName} Accounts</strong> &lt;${meta.emailSender || 'billing@vendor.com'}&gt;</td>
+              </tr>
+              <tr>
+                <td style="font-weight:600; color:var(--text-muted); padding:4px 0;">To:</td>
+                <td>Accounts Payable &lt;ap-invoices@enterprise.com&gt;</td>
+              </tr>
+              <tr>
+                <td style="font-weight:600; color:var(--text-muted); padding:4px 0;">Subject:</td>
+                <td style="font-weight:700; color:var(--text-primary);">${meta.emailSubject || 'Tax Invoice ' + invoice.invoiceNumber}</td>
+              </tr>
+              <tr>
+                <td style="font-weight:600; color:var(--text-muted); padding:4px 0;">Attachment:</td>
+                <td>
+                  <a href="${pdfUrl}" target="_blank" class="sap-badge sap-badge-info" style="text-decoration:none; display:inline-flex; align-items:center; gap:4px; font-family:var(--font-mono);">
+                    ${ICONS.document} ${meta.attachmentName || invoice.invoiceId + '.pdf'} (PDF)
+                  </a>
+                </td>
+              </tr>
+            </table>
+            <div style="padding-top:14px; border-top:1px solid var(--border-subtle); font-size:12.5px; line-height:1.6; color:var(--text-secondary); white-space:pre-line; background:var(--surface-subtle); padding:14px; border-radius:var(--radius-sm); font-family:inherit;">
+Dear Enterprise Accounts Payable Team,
+
+Please find attached our official tax invoice ${invoice.invoiceNumber} for ₹${(invoice.totalGrossAmount || 0).toLocaleString('en-IN')}.
+
+Invoice Details:
+- Invoice ID: ${invoice.invoiceId}
+- Vendor: ${invoice.supplierName}
+- Purchase Order: ${invoice.purchaseOrderReference || 'Non-PO / Service'}
+- Amount: ₹${(invoice.totalGrossAmount || 0).toLocaleString('en-IN')}
+- Due Date: ${invoice.dueDate || '30 Days Net'}
+
+Kindly process and schedule payment according to agreed terms.
+
+Sincerely,
+Accounts Receivable Department
+${invoice.supplierName}
+Tel: +91 22 6790 0000 | Email: ${meta.emailSender || 'billing@vendor.com'}
+            </div>
+          </div>
+        ` : `
+          <div style="height:500px; width:100%; border:1px solid var(--border-main); border-radius:var(--radius-card); overflow:hidden; background:#525659;">
+            <iframe src="${pdfUrl}#toolbar=0" style="width:100%; height:100%; border:none;"></iframe>
+          </div>
+        `}
+      `;
+    } else {
+      // GOVERNMENT_EINVOICE
+      const pdfUrl = `/inbound-docs/government-einvoice-irp/documents/${invoice.invoiceId}.pdf`;
+      const payloadUrl = `/inbound-docs/government-einvoice-irp/payloads/${invoice.invoiceId}.json`;
+      const meta = invoice.channelMetadata || {};
+      const activeTab = artifactType === 'doc' ? 'doc' : 'payload';
+
+      if (downloadBtn) {
+        downloadBtn.href = activeTab === 'doc' ? pdfUrl : payloadUrl;
+        downloadBtn.download = activeTab === 'doc' ? `${invoice.invoiceId}.pdf` : `${invoice.invoiceId}.json`;
+      }
+      if (footerInfoEl) {
+        footerInfoEl.innerHTML = `<span>On-Disk Artifact: <code>mock-data/inbound/government-einvoice-irp/</code></span>`;
+      }
+
+      bodyEl.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid var(--border-subtle); padding-bottom:10px;">
+          <div style="display:flex; gap:8px;">
+            <button class="sap-btn ${activeTab === 'payload' ? 'sap-btn-primary' : 'sap-btn-secondary'} sap-btn-sm" onclick="app.openDocPreview('${invoice.invoiceId}', 'payload')">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+              <span>Statutory IRP Payload (JSON)</span>
+            </button>
+            <button class="sap-btn ${activeTab === 'doc' ? 'sap-btn-primary' : 'sap-btn-secondary'} sap-btn-sm" onclick="app.openDocPreview('${invoice.invoiceId}', 'doc')">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><rect x="2" y="4" width="20" height="16" rx="2"></rect><line x1="6" y1="8" x2="10" y2="8"></line><line x1="6" y1="12" x2="14" y2="12"></line></svg>
+              <span>Official Invoice Document (PDF)</span>
+            </button>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="sap-badge sap-badge-success">${ICONS.check} Digital Signature Verified</span>
+            <span class="sap-badge sap-badge-info">Ack: ${meta.acknowledgementNumber || '112026009841'}</span>
+          </div>
+        </div>
+
+        ${activeTab === 'payload' ? `
+          <div style="background:var(--surface); border:1px solid var(--border-main); border-radius:var(--radius-card); padding:16px;">
+            <div style="margin-bottom:10px; font-size:12px; background:var(--surface-subtle); padding:10px; border-radius:var(--radius-sm); border:1px solid var(--border-subtle);">
+              <div><strong>IRN (64-character hash):</strong></div>
+              <code style="display:block; word-break:break-all; font-family:var(--font-mono); color:var(--brand-primary); margin-top:2px;">${meta.irn || '4f28d8b4e78a6327e4369f8c6501237a6b83f0d2c94178523091abcef5410982'}</code>
+            </div>
+            <div style="background:#0f172a; color:#e2e8f0; padding:14px; border-radius:6px; font-family:var(--font-mono); font-size:11px; max-height:430px; overflow-y:auto; line-height:1.4;">
+              <pre id="jsonPayloadDisplay" style="margin:0;">Loading IRP JSON payload...</pre>
+            </div>
+          </div>
+        ` : `
+          <div style="height:500px; width:100%; border:1px solid var(--border-main); border-radius:var(--radius-card); overflow:hidden; background:#525659;">
+            <iframe src="${pdfUrl}#toolbar=0" style="width:100%; height:100%; border:none;"></iframe>
+          </div>
+        `}
+      `;
+
+      if (activeTab === 'payload') {
+        fetch(payloadUrl)
+          .then((r) => r.json())
+          .then((data) => {
+            const pre = document.getElementById('jsonPayloadDisplay');
+            if (pre) pre.innerText = JSON.stringify(data, null, 2);
+          })
+          .catch(() => {
+            const pre = document.getElementById('jsonPayloadDisplay');
+            if (pre) pre.innerText = JSON.stringify({
+              Version: "1.1",
+              Irn: meta.irn,
+              AckNo: meta.acknowledgementNumber,
+              AckDt: meta.acknowledgementDate,
+              InvoiceNumber: invoice.invoiceNumber,
+              Supplier: invoice.supplierName,
+              SupplierGSTIN: invoice.supplierTaxId,
+              BuyerGSTIN: invoice.buyerTaxId,
+              TotalGrossAmount: invoice.totalGrossAmount,
+              Status: "MOCK_VERIFIED_IRP"
+            }, null, 2);
+          });
+      }
+    }
+
+    modal.style.display = 'flex';
   }
 
   closeModal(modalId) {
