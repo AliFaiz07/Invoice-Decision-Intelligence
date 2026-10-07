@@ -290,6 +290,32 @@ async function runTestSuite() {
     auditEvents.some((e) => e.action.includes('POSTED')),
     'Audit trail captures SAP posting events'
   );
+  // --------------------------------------------------------------------------
+  // TEST GROUP 7: Source Documents & Inbound Artifact Integrity
+  // --------------------------------------------------------------------------
+  console.log('\n--- TEST GROUP 7: Inbound Source Documents & Fixtures ---');
+  const fs = require('fs');
+  const path = require('path');
+  const inboundBase = path.resolve(__dirname, '..', '..', 'mock-data', 'inbound');
+
+  const physPdf = path.join(inboundBase, 'physical-gate-scanner', 'documents', 'INV-2026-00001.pdf');
+  assert(fs.existsSync(physPdf) && fs.statSync(physPdf).size > 1000, 'Physical scanned PDF document exists on disk');
+
+  const emailEml = path.join(inboundBase, 'vendor-ap-mailbox', 'emails', 'email_INV-2026-00003.eml');
+  const emailAtt = path.join(inboundBase, 'vendor-ap-mailbox', 'attachments', 'INV-2026-00003.pdf');
+  assert(fs.existsSync(emailEml) && fs.statSync(emailEml).size > 1000, 'Vendor AP mailbox RFC 822 email fixture exists');
+  assert(fs.existsSync(emailAtt) && fs.statSync(emailAtt).size > 1000, 'Vendor invoice PDF attachment exists');
+
+  const einvPayload = path.join(inboundBase, 'government-einvoice-irp', 'payloads', 'INV-2026-00008.json');
+  const einvDoc = path.join(inboundBase, 'government-einvoice-irp', 'documents', 'INV-2026-00008.pdf');
+  assert(fs.existsSync(einvPayload) && fs.statSync(einvPayload).size > 100, 'Government IRP statutory JSON payload exists');
+  assert(fs.existsSync(einvDoc) && fs.statSync(einvDoc).size > 1000, 'Government invoice PDF document exists');
+
+  const parsedPayload = JSON.parse(fs.readFileSync(einvPayload, 'utf8'));
+  assert(parsedPayload.Irn && parsedPayload.Irn.length >= 64, 'IRP payload contains valid 64-char IRN hash');
+  assert(parsedPayload.SellerDtls && parsedPayload.SellerDtls.Gstin === '27AAACS1234F1Z5', 'IRP payload contains verified seller GSTIN');
+
+
 
   console.log('\n=================================================================');
   console.log(`  TEST RESULTS: ${passed} PASSED, ${failed} FAILED`);
