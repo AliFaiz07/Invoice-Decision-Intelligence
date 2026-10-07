@@ -1,0 +1,12 @@
+{
+  "invoiceId": "INV-2026-00010",
+  "sourceChannel": "PHYSICAL_GATE_SCANNER",
+  "sourceFile": "INV-2026-00010.pdf",
+  "plant": "1010",
+  "scannerLocation": "Plant 1010 Central Receiving Office",
+  "operatorId": "OP-1022",
+  "captureTimestamp": "2026-10-04T14:10:00.000Z",
+  "ocrStatus": "CAPTURED",
+  "ocrResolution": "300 DPI",
+  "ocrConfidence": 98.4
+}

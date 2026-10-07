@@ -1,0 +1,12 @@
+{
+  "invoiceId": "INV-SCAN-641331",
+  "sourceChannel": "PHYSICAL_GATE_SCANNER",
+  "sourceFile": "INV-SCAN-641331.pdf",
+  "plant": "1010",
+  "scannerLocation": "Plant 1010 Security Gate 2 Scanner",
+  "operatorId": "OP-4491",
+  "captureTimestamp": "2026-10-06T04:57:21.331Z",
+  "ocrStatus": "CAPTURED",
+  "ocrResolution": "300 DPI",
+  "ocrConfidence": 98.4
+}

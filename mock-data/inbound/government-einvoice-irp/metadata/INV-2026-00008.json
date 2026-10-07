@@ -1,0 +1,10 @@
+{
+  "invoiceId": "INV-2026-00008",
+  "sourceChannel": "GOVERNMENT_EINVOICE_IRP",
+  "irn": "4f28d8b4e78a6327e4369f8c6501237a6b83f0d2c94178523091abcef5410982",
+  "acknowledgementNumber": "112026009841",
+  "acknowledgementDate": "2026-10-04T05:00:00.000Z",
+  "sourceStatus": "RECEIVED",
+  "reconciliationStatus": "PENDING",
+  "documentFile": "INV-2026-00008.pdf"
+}

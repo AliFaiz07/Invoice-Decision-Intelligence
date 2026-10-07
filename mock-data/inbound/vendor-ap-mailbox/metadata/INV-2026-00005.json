@@ -1,0 +1,12 @@
+{
+  "invoiceId": "INV-2026-00005",
+  "sourceChannel": "VENDOR_AP_MAILBOX",
+  "mailbox": "ap-invoices@enterprise.com",
+  "senderEmail": "billing.support@tcs.com",
+  "spfStatus": "PASS",
+  "dkimStatus": "PASS",
+  "attachmentCount": 1,
+  "attachmentName": "TCS_Consulting_Invoice_5521.pdf",
+  "attachmentFile": "INV-2026-00005.pdf",
+  "receivedTimestamp": "2026-10-03T10:05:00.000Z"
+}

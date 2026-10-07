@@ -1,0 +1,60 @@
+{
+  "Version": "1.1",
+  "Irn": "14f6d1c19962e507e141152ad7930e6a9a2ebd06c1d24b4c6abbf1aca114ec76",
+  "AckNo": 787769693674,
+  "AckDt": "2026-10-06",
+  "TranDtls": {
+    "TaxSch": "GST",
+    "SupTyp": "B2B"
+  },
+  "DocDtls": {
+    "Typ": "INV",
+    "No": "SEI/EINV/8721",
+    "Dt": "2026-10-06"
+  },
+  "SellerDtls": {
+    "Gstin": "27AAACS1234F1Z5",
+    "LglNm": "Schneider Electric India Pvt Ltd",
+    "Addr1": "Schneider Electric House, Mindspace Airoli West",
+    "Loc": "Navi Mumbai",
+    "Pin": 400708,
+    "Stcd": "27"
+  },
+  "BuyerDtls": {
+    "Gstin": "29AABCT1332L1ZV",
+    "LglNm": "Enterprise Industrial Manufacturing Ltd",
+    "Addr1": "Plant 1010, Sector 4, Electronic City Phase II",
+    "Loc": "Bengaluru",
+    "Pin": 560100,
+    "Stcd": "29"
+  },
+  "ItemList": [
+    {
+      "SlNo": "1",
+      "PrdDesc": "PLC Programmable Logic Controller Modicon M580",
+      "IsServc": "N",
+      "HsnCd": "85371000",
+      "Qty": 10,
+      "Unit": "EA",
+      "UnitPrice": 84500,
+      "TotAmt": 845000,
+      "Discount": 0,
+      "AssAmt": 845000,
+      "GstRt": 18,
+      "IgstAmt": 152100.0,
+      "CgstAmt": 0,
+      "SgstAmt": 0,
+      "TotItemVal": 997100.0
+    }
+  ],
+  "ValDtls": {
+    "AssVal": 845000,
+    "CgstVal": 0,
+    "SgstVal": 0,
+    "IgstVal": 152100.0,
+    "TotInvVal": 997100.0
+  },
+  "RefDtls": {
+    "PoRef": "4500012900"
+  }
+}

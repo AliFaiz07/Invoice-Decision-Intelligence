@@ -1,0 +1,12 @@
+{
+  "invoiceId": "INV-MAIL-376612",
+  "sourceChannel": "VENDOR_AP_MAILBOX",
+  "mailbox": "ap-invoices@enterprise.com",
+  "senderEmail": "billing.support@tcs.com",
+  "spfStatus": "PASS",
+  "dkimStatus": "PASS",
+  "attachmentCount": 1,
+  "attachmentName": "TCS_Consulting_Invoice_6354.pdf",
+  "attachmentFile": "INV-MAIL-376612.pdf",
+  "receivedTimestamp": "2026-10-06T04:52:56.613Z"
+}

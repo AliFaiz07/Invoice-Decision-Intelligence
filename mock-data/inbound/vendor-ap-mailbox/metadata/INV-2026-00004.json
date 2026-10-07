@@ -1,0 +1,12 @@
+{
+  "invoiceId": "INV-2026-00004",
+  "sourceChannel": "VENDOR_AP_MAILBOX",
+  "mailbox": "ap-invoices@enterprise.com",
+  "senderEmail": "invoices@apex-facility.com",
+  "spfStatus": "PASS",
+  "dkimStatus": "PASS",
+  "attachmentCount": 1,
+  "attachmentName": "Invoice_8812.pdf",
+  "attachmentFile": "INV-2026-00004.pdf",
+  "receivedTimestamp": "2026-10-02T14:45:10.000Z"
+}

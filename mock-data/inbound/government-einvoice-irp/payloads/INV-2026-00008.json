@@ -1,0 +1,60 @@
+{
+  "Version": "1.1",
+  "Irn": "4f28d8b4e78a6327e4369f8c6501237a6b83f0d2c94178523091abcef5410982",
+  "AckNo": 112026009841,
+  "AckDt": "2026-10-04T05:00:00.000Z",
+  "TranDtls": {
+    "TaxSch": "GST",
+    "SupTyp": "B2B"
+  },
+  "DocDtls": {
+    "Typ": "INV",
+    "No": "SEI/2026/0892",
+    "Dt": "2026-10-04"
+  },
+  "SellerDtls": {
+    "Gstin": "27AAACS1234F1Z5",
+    "LglNm": "Schneider Electric India Pvt Ltd",
+    "Addr1": "Schneider Electric House, Mindspace Airoli West",
+    "Loc": "Navi Mumbai",
+    "Pin": 400708,
+    "Stcd": "27"
+  },
+  "BuyerDtls": {
+    "Gstin": "29AABCT1332L1ZV",
+    "LglNm": "Enterprise Industrial Manufacturing Ltd",
+    "Addr1": "Plant 1010, Sector 4, Electronic City Phase II",
+    "Loc": "Bengaluru",
+    "Pin": 560100,
+    "Stcd": "29"
+  },
+  "ItemList": [
+    {
+      "SlNo": "1",
+      "PrdDesc": "Smart Power Distribution Unit 415V 63A Dual Feed",
+      "IsServc": "N",
+      "HsnCd": "MATELEC",
+      "Qty": 20,
+      "Unit": "EA",
+      "UnitPrice": 42250,
+      "TotAmt": 845000,
+      "Discount": 0,
+      "AssAmt": 845000,
+      "GstRt": 18,
+      "IgstAmt": 152100.0,
+      "CgstAmt": 0,
+      "SgstAmt": 0,
+      "TotItemVal": 997100.0
+    }
+  ],
+  "ValDtls": {
+    "AssVal": 845000,
+    "CgstVal": 0,
+    "SgstVal": 0,
+    "IgstVal": 152100.0,
+    "TotInvVal": 997100.0
+  },
+  "RefDtls": {
+    "PoRef": "4500012900"
+  }
+}

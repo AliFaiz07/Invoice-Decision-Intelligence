@@ -1,0 +1,12 @@
+{
+  "invoiceId": "INV-2026-00009",
+  "sourceChannel": "VENDOR_AP_MAILBOX",
+  "mailbox": "ap-invoices@enterprise.com",
+  "senderEmail": "tax.billing@infosys.com",
+  "spfStatus": "PASS",
+  "dkimStatus": "PASS",
+  "attachmentCount": 1,
+  "attachmentName": "Invoice_INFY_4102.pdf",
+  "attachmentFile": "INV-2026-00009.pdf",
+  "receivedTimestamp": "2026-10-04T11:20:00.000Z"
+}

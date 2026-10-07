@@ -1,0 +1,12 @@
+{
+  "invoiceId": "INV-2026-00003",
+  "sourceChannel": "VENDOR_AP_MAILBOX",
+  "mailbox": "ap-invoices@enterprise.com",
+  "senderEmail": "corporate.ebilling@airtel.in",
+  "spfStatus": "PASS",
+  "dkimStatus": "PASS",
+  "attachmentCount": 1,
+  "attachmentName": "Airtel_Invoice_Oct2026_990142.pdf",
+  "attachmentFile": "INV-2026-00003.pdf",
+  "receivedTimestamp": "2026-10-02T08:14:22.000Z"
+}

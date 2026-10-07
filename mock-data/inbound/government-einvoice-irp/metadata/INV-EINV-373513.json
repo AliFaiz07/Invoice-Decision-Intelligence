@@ -1,0 +1,10 @@
+{
+  "invoiceId": "INV-EINV-373513",
+  "sourceChannel": "GOVERNMENT_EINVOICE_IRP",
+  "irn": "3d2027f3af8526086e757821422df58d2ca48baa21fc0b28331f63fe46e28c24",
+  "acknowledgementNumber": "211954606586",
+  "acknowledgementDate": "2026-10-06",
+  "sourceStatus": "RECEIVED",
+  "reconciliationStatus": "PENDING",
+  "documentFile": "INV-EINV-373513.pdf"
+}
