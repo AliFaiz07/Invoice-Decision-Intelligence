@@ -2338,6 +2338,63 @@
     </div>
   </div>
 
+  <!-- ====================================================================== -->
+  <!-- MODAL: BATCH DEMO INGESTION PROCESSING MODAL                            -->
+  <!-- ====================================================================== -->
+  <div id="modalBatchProcessing" class="sap-modal-overlay" style="display: none; z-index: 10000;">
+    <div class="sap-modal" style="width: 580px; max-width: 95vw;">
+      <div class="sap-modal-header" style="border-bottom: 1px solid var(--border-subtle); padding: 16px 20px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div id="batchProcessingHeaderIcon" style="display: flex; align-items: center; color: var(--brand-primary);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+          </div>
+          <div>
+            <div class="sap-modal-title" id="batchProcessingTitle">Batch Pipeline Ingestion</div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;" id="batchProcessingSubtitle">Multi-Channel Inbound Processor</div>
+          </div>
+        </div>
+      </div>
+      <div class="sap-modal-body" style="padding: 24px 20px;">
+        <!-- Illustration & Detection Banner -->
+        <div style="display: flex; align-items: center; gap: 16px; padding: 14px 16px; background: var(--bg-hover); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); margin-bottom: 20px;">
+          <div id="batchChannelIconBox" style="width: 48px; height: 48px; border-radius: 8px; background: rgba(0, 112, 242, 0.08); display: flex; align-items: center; justify-content: center; color: var(--brand-primary); flex-shrink: 0;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
+          <div style="flex: 1;">
+            <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--brand-primary);" id="batchChannelLabel">DOCUMENT CAPTURE</div>
+            <div style="font-size: 16px; font-weight: 600; color: var(--text-primary); margin-top: 2px;" id="batchDetectedCount">Detecting source documents...</div>
+            <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); margin-top: 2px;" id="batchSourceLocation">Discovering on-disk fixtures...</div>
+          </div>
+          <div>
+            <span class="sap-badge sap-badge-info" id="batchProgressPctBadge">0%</span>
+          </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div style="margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
+            <span style="font-weight: 600; color: var(--text-secondary);" id="batchCurrentStageLabel">Initializing pipeline...</span>
+            <span style="font-family: var(--font-mono); color: var(--brand-primary); font-weight: 700;" id="batchProgressPctText">0%</span>
+          </div>
+          <div style="height: 8px; width: 100%; background: var(--border-subtle); border-radius: 4px; overflow: hidden; position: relative;">
+            <div id="batchProgressBarFill" style="height: 100%; width: 0%; background: var(--brand-primary); border-radius: 4px; transition: width 0.35s ease;"></div>
+          </div>
+        </div>
+
+        <!-- Stages Checklist -->
+        <div id="batchStagesList" style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--text-secondary); border-top: 1px solid var(--border-subtle); padding-top: 14px;">
+          <!-- Dynamically populated stages with active/completed indicators -->
+        </div>
+      </div>
+      <div class="sap-modal-footer" style="border-top: 1px solid var(--border-subtle); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 11px; color: var(--text-muted); font-style: italic;" id="batchFooterNote">Automated enterprise ingestion pipeline</span>
+        <button id="btnBatchClose" class="sap-btn sap-btn-secondary sap-btn-sm" style="display: none;" onclick="app.closeBatchProcessingModal()">
+          <span>Close</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- TOAST CONTAINER -->
   <div id="toastContainer"></div>
 

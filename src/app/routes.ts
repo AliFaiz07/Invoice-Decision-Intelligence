@@ -226,7 +226,34 @@ export function createApiRouter(repository: InvoiceRepository): Router {
   });
 
 
-  // 4. Physical Invoice Intake
+  // 4. Batch Invoice Intake Status
+  router.get('/invoices/intake/batch/status', (req: Request, res: Response) => {
+    try {
+      res.json(repository.getBatchStatus());
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 4b. Batch Channel Intake
+  router.post('/invoices/intake/batch/:channel', async (req: Request, res: Response) => {
+    try {
+      const channelParam = (req.params.channel as string || '').toLowerCase();
+      if (!['physical', 'email', 'einvoice'].includes(channelParam)) {
+        return res.status(400).json({ error: `Invalid intake channel '${channelParam}'. Allowed: physical, email, einvoice.` });
+      }
+      const result = await repository.ingestChannelBatch(channelParam as any);
+      res.json({
+        success: true,
+        message: `${result.count} invoices processed and ingested successfully via ${result.channel} batch pipeline.`,
+        ...result,
+      });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // 4c. Physical Invoice Intake (Single)
   router.post('/invoices/intake/physical', async (req: Request, res: Response) => {
     try {
       const canonical = PhysicalScanAdapter.normalize(req.body);
@@ -237,7 +264,7 @@ export function createApiRouter(repository: InvoiceRepository): Router {
     }
   });
 
-  // 5. Email Invoice Intake
+  // 5. Email Invoice Intake (Single)
   router.post('/invoices/intake/email', async (req: Request, res: Response) => {
     try {
       const canonical = EmailIntakeAdapter.normalize(req.body);
@@ -248,7 +275,7 @@ export function createApiRouter(repository: InvoiceRepository): Router {
     }
   });
 
-  // 6. Government E-Invoice Intake
+  // 6. Government E-Invoice Intake (Single)
   router.post('/invoices/intake/einvoice', async (req: Request, res: Response) => {
     try {
       const canonical = EInvoiceGovAdapter.normalize(req.body);

@@ -58,6 +58,14 @@ class InvoiceDecisionApp {
       qmStrictness: 'STRICT',
     };
 
+    // Batch ingestion status for the 3 inbound channels
+    this.channelBatchStatus = {
+      physical: { processed: false, count: 6, activeCount: 6 },
+      email: { processed: false, count: 6, activeCount: 6 },
+      einvoice: { processed: false, count: 6, activeCount: 6 },
+    };
+    this.isBatchProcessing = false;
+
     this.init();
   }
 
@@ -180,17 +188,22 @@ class InvoiceDecisionApp {
 
   async loadAllData() {
     try {
-      const [invRes, msgRes, audRes, gstRes] = await Promise.all([
+      const [invRes, msgRes, audRes, gstRes, batchRes] = await Promise.all([
         fetch('/api/invoices').then((r) => r.json()),
         fetch('/api/integration-messages').then((r) => r.json()),
         fetch('/api/audit-trail').then((r) => r.json()),
         fetch('/api/gst-reconciliation').then((r) => r.json()),
+        fetch('/api/invoices/intake/batch/status').then((r) => r.json()).catch(() => null),
       ]);
 
       this.invoices = invRes || [];
       this.integrationMessages = msgRes || [];
       this.auditEvents = audRes || [];
       this.gstData = gstRes || { records: [], summary: null };
+
+      if (batchRes && batchRes.channels) {
+        this.channelBatchStatus = batchRes.channels;
+      }
 
       this.updateKPICounters();
       this.renderCurrentView();
@@ -1850,6 +1863,8 @@ class InvoiceDecisionApp {
       const physicalInvoices = this.invoices.filter(
         (i) => i.invoice.sourceChannel === 'PHYSICAL_SCAN'
       );
+      const isBatchDone = Boolean(this.channelBatchStatus?.physical?.processed);
+      const totalDiscovered = this.channelBatchStatus?.physical?.count || 6;
 
       container.innerHTML = `
         <div class="sap-card" style="margin-bottom:20px;">
@@ -1859,18 +1874,19 @@ class InvoiceDecisionApp {
                 ${ICONS.scan}
                 <span>Physical / Gate Scanner Intake Gateway</span>
                 <span class="sap-badge sap-badge-info">${physicalInvoices.length} Documents</span>
+                ${isBatchDone ? '<span class="sap-badge sap-badge-success" style="font-size:10px;">Batch Ingested</span>' : '<span class="sap-badge sap-badge-neutral" style="font-size:10px;">Ready for Ingestion</span>'}
               </div>
               <span class="sap-card-subtitle">
-                Simulates paper invoices scanned at plant security gates and receiving desks. OCR extraction metadata verified via SAP Document Information Extraction.
+                Simulates paper invoices scanned at plant security gates and receiving desks. Optical character recognition metadata verified via SAP Document Information Extraction.
               </span>
               <div style="font-size:11px; color:var(--brand-primary); margin-top:6px; font-family:var(--font-mono); font-weight:600;">
-                On-Disk Source: mock-data/inbound/physical-gate-scanner/ (${physicalInvoices.length} PDF source documents & metadata files)
+                On-Disk Source: mock-data/inbound/physical-gate-scanner/ (${totalDiscovered} PDF source documents & metadata files detected)
               </div>
             </div>
             <div style="display:flex; gap:8px;">
-              <button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.simulateIntake('physical')">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M12 5v14M5 12h14"/></svg>
-                <span>Scan New Paper Invoice</span>
+              <button id="btnBatchPhysical" class="sap-btn ${isBatchDone ? 'sap-btn-secondary' : 'sap-btn-primary'} sap-btn-sm" ${isBatchDone || this.isBatchProcessing ? 'disabled' : ''} onclick="app.processBatchIntake('physical')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span>${isBatchDone ? 'Batch Processed' : 'Scan New Paper Invoice'}</span>
               </button>
             </div>
           </div>
@@ -1942,6 +1958,8 @@ class InvoiceDecisionApp {
       const emailInvoices = this.invoices.filter(
         (i) => i.invoice.sourceChannel === 'EMAIL_INBOUND'
       );
+      const isBatchDone = Boolean(this.channelBatchStatus?.email?.processed);
+      const totalDiscovered = this.channelBatchStatus?.email?.count || 6;
 
       container.innerHTML = `
         <div class="sap-card" style="margin-bottom:20px;">
@@ -1951,18 +1969,19 @@ class InvoiceDecisionApp {
                 ${ICONS.mail}
                 <span>Vendor Invoice AP Mailbox Gateway (invoices@enterprise.com)</span>
                 <span class="sap-badge sap-badge-info">${emailInvoices.length} Messages</span>
+                ${isBatchDone ? '<span class="sap-badge sap-badge-success" style="font-size:10px;">Batch Ingested</span>' : '<span class="sap-badge sap-badge-neutral" style="font-size:10px;">Ready for Ingestion</span>'}
               </div>
               <span class="sap-card-subtitle">
                 Inbound AP email mailbox parser. Ingests RFC 822 email fixtures, checks SPF/DKIM authentication, and extracts PDF attachments.
               </span>
               <div style="font-size:11px; color:var(--brand-primary); margin-top:6px; font-family:var(--font-mono); font-weight:600;">
-                On-Disk Source: mock-data/inbound/vendor-ap-mailbox/ (${emailInvoices.length} .eml fixtures & PDF attachments)
+                On-Disk Source: mock-data/inbound/vendor-ap-mailbox/ (${totalDiscovered} .eml fixtures & PDF attachments detected)
               </div>
             </div>
             <div style="display:flex; gap:8px;">
-              <button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.simulateIntake('email')">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M12 5v14M5 12h14"/></svg>
-                <span>Simulate Inbound AP Email</span>
+              <button id="btnBatchEmail" class="sap-btn ${isBatchDone ? 'sap-btn-secondary' : 'sap-btn-primary'} sap-btn-sm" ${isBatchDone || this.isBatchProcessing ? 'disabled' : ''} onclick="app.processBatchIntake('email')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                <span>${isBatchDone ? 'Batch Processed' : 'Simulate Inbound AP Email'}</span>
               </button>
             </div>
           </div>
@@ -2047,6 +2066,8 @@ class InvoiceDecisionApp {
       const einvoices = this.invoices.filter(
         (i) => i.invoice.sourceChannel === 'GOVERNMENT_EINVOICE'
       );
+      const isBatchDone = Boolean(this.channelBatchStatus?.einvoice?.processed);
+      const totalDiscovered = this.channelBatchStatus?.einvoice?.count || 6;
 
       container.innerHTML = `
         <div class="sap-card" style="margin-bottom:20px;">
@@ -2056,18 +2077,19 @@ class InvoiceDecisionApp {
                 ${ICONS.invoice}
                 <span>Government E-Invoice / IRP Gateway (GST DRC)</span>
                 <span class="sap-badge sap-badge-info">${einvoices.length} Payload Invoices</span>
+                ${isBatchDone ? '<span class="sap-badge sap-badge-success" style="font-size:10px;">Batch Ingested</span>' : '<span class="sap-badge sap-badge-neutral" style="font-size:10px;">Ready for Ingestion</span>'}
               </div>
               <span class="sap-card-subtitle">
                 Direct statutory B2B electronic invoice push from Invoice Registration Portal (IRP). Carries official 64-char IRN, QR cryptographic signatures, and 48-hour statutory validation SLA.
               </span>
               <div style="font-size:11px; color:var(--brand-primary); margin-top:6px; font-family:var(--font-mono); font-weight:600;">
-                On-Disk Source: mock-data/inbound/government-einvoice-irp/ (${einvoices.length} JSON payloads & PDF documents)
+                On-Disk Source: mock-data/inbound/government-einvoice-irp/ (${totalDiscovered} JSON payloads & PDF documents detected)
               </div>
             </div>
             <div style="display:flex; gap:8px;">
-              <button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.simulateIntake('einvoice')">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M12 5v14M5 12h14"/></svg>
-                <span>Simulate E-Invoice Portal Push</span>
+              <button id="btnBatchEinvoice" class="sap-btn ${isBatchDone ? 'sap-btn-secondary' : 'sap-btn-primary'} sap-btn-sm" ${isBatchDone || this.isBatchProcessing ? 'disabled' : ''} onclick="app.processBatchIntake('einvoice')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg>
+                <span>${isBatchDone ? 'Batch Processed' : 'Simulate E-Invoice Portal Push'}</span>
               </button>
             </div>
           </div>
@@ -2147,116 +2169,270 @@ class InvoiceDecisionApp {
     }
   }
 
-  async simulateIntake(channel) {
-    let endpoint = '/api/invoices/intake/physical';
-    let payload = {};
+  // --------------------------------------------------------------------------
+  // BATCH DEMO INGESTION PIPELINE (ONE CLICK = INGEST ALL SOURCE INVOICES)
+  // --------------------------------------------------------------------------
+  async processBatchIntake(channel) {
+    if (this.isBatchProcessing) return;
 
-    if (channel === 'physical') {
-      endpoint = '/api/invoices/intake/physical';
-      payload = {
-        invoiceNumber: `SEI/2026/${Math.floor(1000 + Math.random() * 9000)}`,
-        supplierTaxId: '27AAACS1234F1Z5',
-        supplierName: 'Schneider Electric India Pvt Ltd',
-        invoiceDate: new Date().toISOString().split('T')[0],
-        dueDate: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
-        currency: 'INR',
-        poReference: '4500012456',
-        totalNetAmount: 50000,
-        taxAmount: 9000,
-        totalGrossAmount: 59000,
-        scannerLocation: 'Plant 1010 Security Gate 2 Scanner',
-        operatorId: 'OP-4491',
-        scanDpi: 300,
-        lineItems: [
-          {
-            itemNumber: '00010',
-            description: 'Industrial Miniature Circuit Breakers (MCB 32A)',
-            quantity: 100,
-            unitOfMeasure: 'EA',
-            unitPrice: 500,
-            netAmount: 50000,
-            taxRate: 18,
-            taxAmount: 9000,
-          },
-        ],
+    const channelStatus = this.channelBatchStatus?.[channel];
+    if (channelStatus && channelStatus.processed) {
+      const channelTitles = {
+        physical: 'Physical Gate Scanner',
+        email: 'Vendor AP Mailbox',
+        einvoice: 'Government E-Invoice',
       };
-    } else if (channel === 'email') {
-      endpoint = '/api/invoices/intake/email';
-      payload = {
-        emailSender: 'billing.support@tcs.com',
-        emailSubject: `Invoice TCS-${Math.floor(1000 + Math.random() * 9000)} - S/4HANA Consulting`,
-        attachmentName: `TCS_Consulting_Invoice_${Math.floor(1000 + Math.random() * 9000)}.pdf`,
-        extractedInvoiceNumber: `TCS/2026/${Math.floor(1000 + Math.random() * 9000)}`,
-        supplierTaxId: '27AAACT1999A1Z1',
-        supplierName: 'Tata Consultancy Services Ltd',
-        invoiceDate: new Date().toISOString().split('T')[0],
-        dueDate: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
-        currency: 'INR',
-        poReference: '4500012750',
-        totalNetAmount: 115000,
-        taxAmount: 20700,
-        totalGrossAmount: 135700,
-        lineItems: [
-          {
-            itemNumber: '00010',
-            description: 'Senior SAP S/4HANA Solution Architect (Consulting Hours)',
-            quantity: 100,
-            unitOfMeasure: 'HR',
-            unitPrice: 1150,
-            netAmount: 115000,
-            taxRate: 18,
-            taxAmount: 20700,
-          },
-        ],
-      };
-    } else {
-      endpoint = '/api/invoices/intake/einvoice';
-      const fakeIrn = Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-      payload = {
-        irn: fakeIrn,
-        acknowledgementNumber: `${Math.floor(100000000000 + Math.random() * 900000000000)}`,
-        acknowledgementDate: new Date().toISOString().split('T')[0],
-        digitalSignatureValid: true,
-        invoiceNumber: `SEI/EINV/${Math.floor(1000 + Math.random() * 9000)}`,
-        supplierGstin: '27AAACS1234F1Z5',
-        supplierLegalName: 'Schneider Electric India Pvt Ltd',
-        buyerGstin: '29AABCT1332L1ZV',
-        invoiceDate: new Date().toISOString().split('T')[0],
-        dueDate: new Date(Date.now() + 45 * 86400000).toISOString().split('T')[0],
-        currency: 'INR',
-        poReference: '4500012900',
-        totalTaxableValue: 845000,
-        cgstAmount: 76050,
-        sgstAmount: 76050,
-        totalInvoiceValue: 997100,
-        lineItems: [
-          {
-            itemNumber: '00010',
-            description: 'PLC Programmable Logic Controller Modicon M580',
-            quantity: 10,
-            unitOfMeasure: 'EA',
-            unitPrice: 84500,
-            taxableAmount: 845000,
-            gstRate: 18,
-            gstAmount: 152100,
-          },
-        ],
-      };
+      this.showToast(`${channelTitles[channel] || channel} invoice batch already processed.`, 'info');
+      return;
     }
 
+    this.isBatchProcessing = true;
+    const count = channelStatus?.count || 6;
+
+    // Open Batch Modal and initialize stage sequence
+    this.openBatchProcessingModal(channel, count);
+
+    // Disable button visually
+    const btnIdMap = {
+      physical: 'btnBatchPhysical',
+      email: 'btnBatchEmail',
+      einvoice: 'btnBatchEinvoice',
+    };
+    const actionBtn = document.getElementById(btnIdMap[channel]);
+    if (actionBtn) {
+      actionBtn.disabled = true;
+      actionBtn.innerHTML = `
+        <svg class="sap-spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px; animation: spin 1s linear infinite;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        <span>Processing Batch...</span>
+      `;
+    }
+
+    const stagesConfig = {
+      physical: [
+        { label: 'Initializing scanner...', pct: 15, delayMs: 800 },
+        { label: `Capturing ${count} documents...`, pct: 35, delayMs: 900 },
+        { label: 'Running OCR extraction...', pct: 60, delayMs: 1000 },
+        { label: 'Validating invoice fields...', pct: 80, delayMs: 900 },
+        { label: 'Ingesting invoices into decision workflow...', pct: 95, delayMs: 800 },
+      ],
+      email: [
+        { label: 'Connecting to AP mailbox...', pct: 15, delayMs: 800 },
+        { label: `${count} inbound messages detected`, pct: 35, delayMs: 900 },
+        { label: 'Extracting invoice attachments...', pct: 60, delayMs: 1000 },
+        { label: 'Processing invoice documents...', pct: 80, delayMs: 900 },
+        { label: 'Normalizing invoice data...', pct: 95, delayMs: 800 },
+      ],
+      einvoice: [
+        { label: 'Connecting to IRP gateway...', pct: 15, delayMs: 800 },
+        { label: `${count} e-invoice payloads detected`, pct: 35, delayMs: 900 },
+        { label: 'Receiving IRP payloads...', pct: 60, delayMs: 1000 },
+        { label: 'Validating payload structure...', pct: 80, delayMs: 900 },
+        { label: 'Resolving invoice records...', pct: 95, delayMs: 800 },
+      ],
+    };
+
+    const stages = stagesConfig[channel] || stagesConfig.physical;
+
+    // Trigger backend ingestion in parallel
+    const apiPromise = fetch(`/api/invoices/intake/batch/${channel}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then((r) => r.json())
+      .catch((err) => ({ error: err.message }));
+
+    // Animate stages smoothly over 4-4.5 seconds
     try {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      }).then((r) => r.json());
+      for (let i = 0; i < stages.length; i++) {
+        const stage = stages[i];
+        this.updateBatchModalStage(i, stage.label, stage.pct, stages);
+        await new Promise((resolve) => setTimeout(resolve, stage.delayMs));
+      }
 
-      this.showToast(`Simulated intake ingested: ${res.invoice?.invoiceId || 'Success'}`, 'success');
+      const res = await apiPromise;
+
+      if (res.error) {
+        throw new Error(res.error);
+      }
+
+      // Final completion stage (100%)
+      const finalCount = res.count || count;
+      const completionLabels = {
+        physical: `${finalCount} invoices captured successfully.`,
+        email: `${finalCount} email invoices ingested successfully.`,
+        einvoice: `${finalCount} e-invoices pushed successfully.`,
+      };
+      const finalLabel = completionLabels[channel] || `${finalCount} invoices processed successfully.`;
+
+      this.updateBatchModalComplete(finalLabel, stages);
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
+      // Reload state across all modules
       await this.loadAllData();
+
+      this.closeBatchProcessingModal();
+      this.showToast(finalLabel, 'success');
       this.renderMockPortals();
-    } catch (e) {
-      this.showToast('Intake simulation failed', 'error');
+    } catch (err) {
+      console.error('Batch intake error:', err);
+      this.closeBatchProcessingModal();
+      this.showToast(err.message || 'Batch intake failed', 'error');
+      if (actionBtn) {
+        actionBtn.disabled = false;
+        actionBtn.innerHTML = `<span>Retry Batch</span>`;
+      }
+    } finally {
+      this.isBatchProcessing = false;
     }
+  }
+
+  openBatchProcessingModal(channel, count) {
+    const modal = document.getElementById('modalBatchProcessing');
+    if (!modal) return;
+
+    const channelMeta = {
+      physical: {
+        title: 'Physical / Gate Scanner Batch Capture',
+        subtitle: 'SAP Document Information Extraction (OCR Pipeline)',
+        channelTag: 'DOCUMENT CAPTURE',
+        detected: `${count} documents detected`,
+        location: 'mock-data/inbound/physical-gate-scanner/ (PDF Fixtures)',
+        icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`,
+      },
+      email: {
+        title: 'Vendor AP Mailbox Batch Ingestion',
+        subtitle: 'RFC 822 Email & PDF Attachment Extraction Pipeline',
+        channelTag: 'MAILBOX INGESTION',
+        detected: `${count} email messages detected`,
+        location: 'mock-data/inbound/vendor-ap-mailbox/ (EML & PDF Fixtures)',
+        icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>`,
+      },
+      einvoice: {
+        title: 'Government E-Invoice / IRP Batch Push',
+        subtitle: 'GST Invoice Registration Portal Statutory Sync',
+        channelTag: 'PORTAL PAYLOAD INGESTION',
+        detected: `${count} e-invoice payloads detected`,
+        location: 'mock-data/inbound/government-einvoice-irp/ (JSON & PDF Fixtures)',
+        icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg>`,
+      },
+    };
+
+    const cfg = channelMeta[channel] || channelMeta.physical;
+
+    const titleEl = document.getElementById('batchProcessingTitle');
+    const subtitleEl = document.getElementById('batchProcessingSubtitle');
+    const labelEl = document.getElementById('batchChannelLabel');
+    const detectedEl = document.getElementById('batchDetectedCount');
+    const locationEl = document.getElementById('batchSourceLocation');
+    const iconBoxEl = document.getElementById('batchChannelIconBox');
+    const pctBadge = document.getElementById('batchProgressPctBadge');
+    const pctText = document.getElementById('batchProgressPctText');
+    const fillEl = document.getElementById('batchProgressBarFill');
+    const stageLabel = document.getElementById('batchCurrentStageLabel');
+    const stagesList = document.getElementById('batchStagesList');
+    const btnClose = document.getElementById('btnBatchClose');
+
+    if (titleEl) titleEl.textContent = cfg.title;
+    if (subtitleEl) subtitleEl.textContent = cfg.subtitle;
+    if (labelEl) labelEl.textContent = cfg.channelTag;
+    if (detectedEl) detectedEl.textContent = cfg.detected;
+    if (locationEl) locationEl.textContent = cfg.location;
+    if (iconBoxEl) iconBoxEl.innerHTML = cfg.icon;
+    if (pctBadge) pctBadge.textContent = '0%';
+    if (pctText) pctText.textContent = '0%';
+    if (fillEl) fillEl.style.width = '0%';
+    if (stageLabel) stageLabel.textContent = 'Initializing batch pipeline...';
+    if (stagesList) stagesList.innerHTML = '';
+    if (btnClose) btnClose.style.display = 'none';
+
+    modal.style.display = 'flex';
+  }
+
+  updateBatchModalStage(currentIndex, label, pct, allStages) {
+    const pctBadge = document.getElementById('batchProgressPctBadge');
+    const pctText = document.getElementById('batchProgressPctText');
+    const fillEl = document.getElementById('batchProgressBarFill');
+    const stageLabel = document.getElementById('batchCurrentStageLabel');
+    const stagesList = document.getElementById('batchStagesList');
+
+    if (pctBadge) pctBadge.textContent = `${pct}%`;
+    if (pctText) pctText.textContent = `${pct}%`;
+    if (fillEl) fillEl.style.width = `${pct}%`;
+    if (stageLabel) stageLabel.textContent = label;
+
+    if (stagesList) {
+      stagesList.innerHTML = allStages
+        .map((s, idx) => {
+          let statusIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>`;
+          let textColor = 'var(--text-muted)';
+          let fontWeight = '400';
+
+          if (idx < currentIndex) {
+            statusIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--status-positive)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
+            textColor = 'var(--text-primary)';
+            fontWeight = '500';
+          } else if (idx === currentIndex) {
+            statusIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--brand-primary)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>`;
+            textColor = 'var(--brand-primary)';
+            fontWeight = '700';
+          }
+
+          return `
+            <div style="display:flex; align-items:center; gap:8px; font-weight:${fontWeight}; color:${textColor};">
+              <span style="display:flex; align-items:center;">${statusIcon}</span>
+              <span>${s.label}</span>
+            </div>
+          `;
+        })
+        .join('');
+    }
+  }
+
+  updateBatchModalComplete(completionLabel, allStages) {
+    const pctBadge = document.getElementById('batchProgressPctBadge');
+    const pctText = document.getElementById('batchProgressPctText');
+    const fillEl = document.getElementById('batchProgressBarFill');
+    const stageLabel = document.getElementById('batchCurrentStageLabel');
+    const stagesList = document.getElementById('batchStagesList');
+    const detectedEl = document.getElementById('batchDetectedCount');
+
+    if (pctBadge) {
+      pctBadge.textContent = '100%';
+      pctBadge.className = 'sap-badge sap-badge-success';
+    }
+    if (pctText) pctText.textContent = '100%';
+    if (fillEl) {
+      fillEl.style.width = '100%';
+      fillEl.style.background = 'var(--status-positive)';
+    }
+    if (stageLabel) stageLabel.textContent = completionLabel;
+    if (detectedEl) detectedEl.textContent = completionLabel;
+
+    if (stagesList) {
+      stagesList.innerHTML = allStages
+        .map((s) => `
+          <div style="display:flex; align-items:center; gap:8px; font-weight:500; color:var(--text-primary);">
+            <span style="display:flex; align-items:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--status-positive)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span>${s.label}</span>
+          </div>
+        `)
+        .join('') + `
+          <div style="display:flex; align-items:center; gap:8px; font-weight:700; color:var(--status-positive); margin-top:4px;">
+            <span style="display:flex; align-items:center;">${ICONS.checkCircle}</span>
+            <span>${completionLabel}</span>
+          </div>
+        `;
+    }
+  }
+
+  closeBatchProcessingModal() {
+    const modal = document.getElementById('modalBatchProcessing');
+    if (modal) modal.style.display = 'none';
+  }
+
+  async simulateIntake(channel) {
+    // Redirect single intake clicks to full batch ingestion pipeline
+    return this.processBatchIntake(channel);
   }
 
   // --------------------------------------------------------------------------
@@ -2409,6 +2585,11 @@ class InvoiceDecisionApp {
     if (!confirm('Reset all 10 enterprise demo scenarios and GSTR-2B datasets to factory baseline state?')) return;
     try {
       await fetch('/api/reset', { method: 'POST' });
+      this.channelBatchStatus = {
+        physical: { processed: false, count: 6, activeCount: 6 },
+        email: { processed: false, count: 6, activeCount: 6 },
+        einvoice: { processed: false, count: 6, activeCount: 6 },
+      };
       this.showToast('All scenarios reset to baseline state', 'success');
       this.selectedInvoiceId = 'INV-2026-00001';
       await this.loadAllData();

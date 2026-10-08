@@ -194,6 +194,34 @@ export class MockSourceDataStore {
     return invoices.sort((a, b) => a.invoiceId.localeCompare(b.invoiceId));
   }
 
+  /**
+   * Discovers actual inbound mock source fixture count dynamically on disk.
+   */
+  public getSourceFixtureCount(channel: SourceChannel): number {
+    const inboundBase = path.join(this.baseDir, 'inbound');
+    try {
+      if (channel === 'PHYSICAL_SCAN') {
+        const dir = path.join(inboundBase, 'physical-gate-scanner', 'documents');
+        if (fs.existsSync(dir)) {
+          return fs.readdirSync(dir).filter((f) => f.toLowerCase().endsWith('.pdf')).length;
+        }
+      } else if (channel === 'EMAIL_INBOUND') {
+        const dir = path.join(inboundBase, 'vendor-ap-mailbox', 'attachments');
+        if (fs.existsSync(dir)) {
+          return fs.readdirSync(dir).filter((f) => f.toLowerCase().endsWith('.pdf')).length;
+        }
+      } else if (channel === 'GOVERNMENT_EINVOICE') {
+        const dir = path.join(inboundBase, 'government-einvoice-irp', 'payloads');
+        if (fs.existsSync(dir)) {
+          return fs.readdirSync(dir).filter((f) => f.toLowerCase().endsWith('.json')).length;
+        }
+      }
+    } catch (e) {
+      console.error(`Error reading source fixture count for ${channel}:`, e);
+    }
+    return this.getInvoicesByChannel(channel).length;
+  }
+
   public getAllInvoices(): CanonicalSupplierInvoice[] {
     const physical = this.getInvoicesByChannel('PHYSICAL_SCAN');
     const email = this.getInvoicesByChannel('EMAIL_INBOUND');

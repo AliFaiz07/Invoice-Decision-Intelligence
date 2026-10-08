@@ -59,6 +59,11 @@ export class InvoiceRepository {
   public dataStore: MockSourceDataStore;
 
   private invoices: Map<string, CanonicalSupplierInvoice> = new Map();
+  private channelBatchStatus: { physical: boolean; email: boolean; einvoice: boolean } = {
+    physical: false,
+    email: false,
+    einvoice: false,
+  };
 
   constructor() {
     const isDemoMode = process.env.DEMO_MODE !== 'false';
@@ -85,6 +90,7 @@ export class InvoiceRepository {
 
   public resetToDefaultScenarios(): void {
     this.invoices.clear();
+    this.channelBatchStatus = { physical: false, email: false, einvoice: false };
     this.dataStore.seedAll();
     const stored = this.dataStore.getAllInvoices();
     stored.forEach((inv) => {
@@ -103,6 +109,107 @@ export class InvoiceRepository {
       reason: 'Quarterly HVAC cleaning not performed up to contract standards. Re-work requested.',
       previousStatus: 'PENDING_BUSINESS_VALIDATION',
     });
+  }
+
+  public getBatchStatus() {
+    const physicalCount = this.dataStore.getSourceFixtureCount('PHYSICAL_SCAN');
+    const emailCount = this.dataStore.getSourceFixtureCount('EMAIL_INBOUND');
+    const einvoiceCount = this.dataStore.getSourceFixtureCount('GOVERNMENT_EINVOICE');
+    return {
+      channels: {
+        physical: {
+          processed: this.channelBatchStatus.physical,
+          count: physicalCount,
+          activeCount: this.getInvoicesByChannel('PHYSICAL_SCAN').length,
+        },
+        email: {
+          processed: this.channelBatchStatus.email,
+          count: emailCount,
+          activeCount: this.getInvoicesByChannel('EMAIL_INBOUND').length,
+        },
+        einvoice: {
+          processed: this.channelBatchStatus.einvoice,
+          count: einvoiceCount,
+          activeCount: this.getInvoicesByChannel('GOVERNMENT_EINVOICE').length,
+        },
+      },
+    };
+  }
+
+  public async ingestChannelBatch(channelKey: 'physical' | 'email' | 'einvoice'): Promise<{
+    channel: string;
+    count: number;
+    invoices: CanonicalSupplierInvoice[];
+  }> {
+    const channelMap: Record<string, any> = {
+      physical: 'PHYSICAL_SCAN',
+      email: 'EMAIL_INBOUND',
+      einvoice: 'GOVERNMENT_EINVOICE',
+    };
+    const channelNameMap: Record<string, string> = {
+      physical: 'Physical Gate Scanner',
+      email: 'Vendor AP Mailbox',
+      einvoice: 'Government E-Invoice / IRP',
+    };
+
+    const sourceChannel = channelMap[channelKey];
+    if (!sourceChannel) {
+      throw new Error(`Invalid channel '${channelKey}' specified.`);
+    }
+
+    if (this.channelBatchStatus[channelKey]) {
+      throw new Error(`${channelNameMap[channelKey]} invoice batch has already been processed in this demo cycle.`);
+    }
+
+    // Load all canonical invoices for this channel directly from disk fixtures
+    const channelFixtures = this.dataStore.getInvoicesByChannel(sourceChannel);
+
+    for (const inv of channelFixtures) {
+      // Ingest/update into runtime state without overwriting or destroying source files
+      this.invoices.set(inv.invoiceId, inv);
+
+      // Record audit event
+      this.auditTrailService.recordEvent({
+        invoiceId: inv.invoiceId,
+        actorId: 'BATCH_INTAKE_GATEWAY',
+        actorName: `${channelNameMap[channelKey]} Batch Pipeline`,
+        actorRole: 'SYSTEM_INTAKE',
+        action: 'INVOICE_BATCH_INGESTED',
+        previousState: 'DISCOVERED',
+        newState: inv.processingStatus,
+        justification: `Batch ingestion completed for ${inv.invoiceNumber} via ${channelNameMap[channelKey]}`,
+      });
+
+      // Record integration message
+      this.integrationMonitorService.logMessage({
+        interfaceName: `Batch_Inbound_${sourceChannel}_Ingest`,
+        senderSystem: sourceChannel,
+        receiverSystem: 'SAP_BTP_DECISION_ENGINE',
+        status: 'SUCCESS',
+        direction: 'INBOUND',
+        invoiceId: inv.invoiceId,
+        payloadSummary: `Batch ingested invoice ${inv.invoiceNumber} (₹${inv.totalGrossAmount.toLocaleString('en-IN')})`,
+        requestPayloadPreview: inv,
+        responsePayloadPreview: { status: 'BATCH_INGESTED', invoiceId: inv.invoiceId },
+      });
+
+      // Resolve business owner & register SLA
+      let po: SAPPurchaseOrder | null = null;
+      if (inv.purchaseOrderReference) {
+        po = await this.sapAdapter.getPurchaseOrder(inv.purchaseOrderReference);
+      }
+      const bo = this.businessValidationService.resolveBusinessOwner(inv, po);
+      this.slaMonitorService.registerInvoiceSLA(inv, bo.name);
+    }
+
+    // Mark channel batch as processed in this demo cycle
+    this.channelBatchStatus[channelKey] = true;
+
+    return {
+      channel: channelKey,
+      count: channelFixtures.length,
+      invoices: channelFixtures,
+    };
   }
 
   public getAllInvoices(): CanonicalSupplierInvoice[] {

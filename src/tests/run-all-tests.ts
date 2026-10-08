@@ -315,6 +315,62 @@ async function runTestSuite() {
   assert(parsedPayload.Irn && parsedPayload.Irn.length >= 64, 'IRP payload contains valid 64-char IRN hash');
   assert(parsedPayload.SellerDtls && parsedPayload.SellerDtls.Gstin === '27AAACS1234F1Z5', 'IRP payload contains verified seller GSTIN');
 
+  // --------------------------------------------------------------------------
+  // TEST GROUP 8: Batch Demo Ingestion Pipeline & Channel State
+  // --------------------------------------------------------------------------
+  console.log('\n--- TEST GROUP 8: Batch Demo Ingestion Pipeline ---');
+  const batchRepo = new InvoiceRepository();
+
+  const initialBatchStatus = batchRepo.getBatchStatus();
+  assert(initialBatchStatus.channels.physical.processed === false, 'Batch physical initially unprocessed');
+  assert(initialBatchStatus.channels.email.processed === false, 'Batch email initially unprocessed');
+  assert(initialBatchStatus.channels.einvoice.processed === false, 'Batch einvoice initially unprocessed');
+  assert(initialBatchStatus.channels.physical.count === 6, 'Dynamic discovery detects exactly 6 physical source files');
+  assert(initialBatchStatus.channels.email.count === 6, 'Dynamic discovery detects exactly 6 email source files');
+  assert(initialBatchStatus.channels.einvoice.count === 6, 'Dynamic discovery detects exactly 6 einvoice source files');
+
+  // Process Physical Batch Ingestion
+  const physBatchResult = await batchRepo.ingestChannelBatch('physical');
+  assert(physBatchResult.count === 6, 'Physical batch ingests all 6 physical source fixtures');
+  assert(physBatchResult.invoices.length === 6, 'Physical batch returns all 6 canonical invoices');
+  assert(batchRepo.getBatchStatus().channels.physical.processed === true, 'Physical batch state marked as processed');
+
+  // Duplicate Processing Prevention
+  let duplicatePrevented = false;
+  try {
+    await batchRepo.ingestChannelBatch('physical');
+  } catch (err: any) {
+    duplicatePrevented = err.message.includes('already been processed');
+  }
+  assert(duplicatePrevented, 'Duplicate physical batch processing is rejected in same demo cycle');
+
+  // Process Email Batch Ingestion
+  const emailBatchResult = await batchRepo.ingestChannelBatch('email');
+  assert(emailBatchResult.count === 6, 'Email batch ingests all 6 email source fixtures');
+  assert(batchRepo.getBatchStatus().channels.email.processed === true, 'Email batch state marked as processed');
+
+  // Process Government E-Invoice Batch Ingestion
+  const einvBatchResult = await batchRepo.ingestChannelBatch('einvoice');
+  assert(einvBatchResult.count === 6, 'E-Invoice batch ingests all 6 einvoice source fixtures');
+  assert(batchRepo.getBatchStatus().channels.einvoice.processed === true, 'E-Invoice batch state marked as processed');
+
+  // Verify Audit Trail & Integration Monitor logged batch entries
+  const batchAuditEvents = batchRepo.auditTrailService.getAllEvents();
+  const hasBatchAuditEvent = batchAuditEvents.some((e) => e.action === 'INVOICE_BATCH_INGESTED');
+  assert(hasBatchAuditEvent, 'Audit trail records INVOICE_BATCH_INGESTED events');
+
+  const batchIntegrationMsgs = batchRepo.integrationMonitorService.getAllMessages();
+  const hasBatchIntegrationMsg = batchIntegrationMsgs.some((m) => m.interfaceName.startsWith('Batch_Inbound_'));
+  assert(hasBatchIntegrationMsg, 'Integration monitor ledger records batch inbound flow messages');
+
+  // Verify Demo Reset restarts cycle without modifying or deleting files on disk
+  batchRepo.resetToDefaultScenarios();
+  const resetBatchStatus = batchRepo.getBatchStatus();
+  assert(resetBatchStatus.channels.physical.processed === false, 'Reset Demo clears physical batch processed state');
+  assert(resetBatchStatus.channels.email.processed === false, 'Reset Demo clears email batch processed state');
+  assert(resetBatchStatus.channels.einvoice.processed === false, 'Reset Demo clears einvoice batch processed state');
+  assert(fs.existsSync(physPdf) && fs.existsSync(emailEml) && fs.existsSync(einvPayload), 'Source mock fixtures intact and preserved on disk after reset');
+
 
 
   console.log('\n=================================================================');
