@@ -26,7 +26,61 @@ export type AIDecisionRecommendation =
   | 'MANUAL_REVIEW'
   | 'HOLD'
   | 'REJECT'
-  | 'NON_PO_PROCESS';
+  | 'NON_PO_PROCESS'
+  | 'POTENTIAL_DUPLICATE'
+  | 'PAYMENT_FOLLOW_UP'
+  | 'ALREADY_PROCESSED';
+
+export type InvoicePostingStatus =
+  | 'NOT_POSTED'
+  | 'PARKED'
+  | 'POSTED'
+  | 'FAILED';
+
+export type InvoicePaymentStatus =
+  | 'NOT_PROCESSED'
+  | 'NOT_DUE'
+  | 'PAYMENT_PENDING'
+  | 'PAID'
+  | 'PARTIALLY_PAID'
+  | 'BLOCKED'
+  | 'CLEARED';
+
+export type InvoiceClearingStatus =
+  | 'OPEN'
+  | 'CLEARED'
+  | 'PARTIALLY_CLEARED'
+  | 'NOT_APPLICABLE';
+
+export type DocumentReferenceType =
+  | 'SUPPLIER_INVOICE'
+  | 'PURCHASE_ORDER'
+  | 'GOODS_RECEIPT'
+  | 'QUALITY_LOT'
+  | 'PARKED_INVOICE'
+  | 'ACCOUNTING_DOCUMENT'
+  | 'PAYMENT_DOCUMENT'
+  | 'CLEARING_DOCUMENT';
+
+export interface DocumentReferenceNode {
+  type: DocumentReferenceType;
+  label: string;
+  referenceNumber: string;
+  source: string;
+  status: string;
+  timestamp?: string;
+  fiscalYear?: string;
+}
+
+export interface ComparisonCheckRow {
+  check: string;
+  invoiceValue: string;
+  poValue: string;
+  grValue: string;
+  qualityValue: string;
+  result: 'MATCH' | 'PRICE_VARIANCE' | 'QUANTITY_VARIANCE' | 'VENDOR_MISMATCH' | 'QUALITY_REJECTED' | 'NON_PO' | 'INFO' | 'DUPLICATE_SUSPECT';
+  details?: string;
+}
 
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
@@ -180,6 +234,21 @@ export interface CanonicalSupplierInvoice {
     businessOwnerId: string;
     approverName: string;
   };
+  postingStatus?: InvoicePostingStatus;
+  paymentStatus?: InvoicePaymentStatus;
+  clearingStatus?: InvoiceClearingStatus;
+  accountingDocumentNumber?: string;
+  fiscalYear?: string;
+  postingDate?: string;
+  parkedDocumentNumber?: string;
+  parkedDate?: string;
+  paymentDocumentNumber?: string;
+  paymentReference?: string;
+  paymentDate?: string;
+  clearingDocumentNumber?: string;
+  clearingDate?: string;
+  documentChain?: DocumentReferenceNode[];
+  comparisonRows?: ComparisonCheckRow[];
 }
 
 // --- Business Owner Validation ---
@@ -219,6 +288,7 @@ export interface ThreeWayReconciliationSummary {
   invoicedTotalNet: number;
   poTotalNet: number;
   grTotalNet: number;
+  comparisonRows?: ComparisonCheckRow[];
 }
 
 // --- Explainable AI (XAI) Output Contract ---

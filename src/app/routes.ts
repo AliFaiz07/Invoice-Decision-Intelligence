@@ -356,6 +356,71 @@ export function createApiRouter(repository: InvoiceRepository): Router {
     }
   });
 
+  // 9b. Process Payment (F110 / Automatic Payment Run)
+  router.post('/invoices/:id/payment/process', async (req: Request, res: Response) => {
+    try {
+      const invoiceId = getId(req);
+      const invoice = repository.getInvoiceById(invoiceId);
+      if (!invoice) {
+        return res.status(404).json({ error: `Invoice ${invoiceId} not found.` });
+      }
+
+      const paymentResult = await repository.sapPostingService.processPayment(
+        invoice,
+        req.body.actorId || 'AP_TREASURY',
+        req.body.actorName || 'Treasury & Disbursement Specialist'
+      );
+
+      const updatedDetail = await repository.getInvoiceDetail(invoiceId);
+      res.json({ paymentResult, invoiceDetail: updatedDetail });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  router.post('/invoices/:id/pay', async (req: Request, res: Response) => {
+    try {
+      const invoiceId = getId(req);
+      const invoice = repository.getInvoiceById(invoiceId);
+      if (!invoice) {
+        return res.status(404).json({ error: `Invoice ${invoiceId} not found.` });
+      }
+
+      const paymentResult = await repository.sapPostingService.processPayment(
+        invoice,
+        req.body.actorId || 'AP_TREASURY',
+        req.body.actorName || 'Treasury & Disbursement Specialist'
+      );
+
+      const updatedDetail = await repository.getInvoiceDetail(invoiceId);
+      res.json({ paymentResult, invoiceDetail: updatedDetail });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // 9c. Clear AP Settlement (BSAK)
+  router.post('/invoices/:id/payment/clear', async (req: Request, res: Response) => {
+    try {
+      const invoiceId = getId(req);
+      const invoice = repository.getInvoiceById(invoiceId);
+      if (!invoice) {
+        return res.status(404).json({ error: `Invoice ${invoiceId} not found.` });
+      }
+
+      const clearingResult = await repository.sapPostingService.clearPayment(
+        invoice,
+        req.body.actorId || 'AP_TREASURY',
+        req.body.actorName || 'General Ledger Clearing Robot'
+      );
+
+      const updatedDetail = await repository.getInvoiceDetail(invoiceId);
+      res.json({ clearingResult, invoiceDetail: updatedDetail });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
   // 10. SLA Records
   router.get('/sla', (req: Request, res: Response) => {
     res.json(repository.slaMonitorService.getAllSLARecords());

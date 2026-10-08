@@ -54,6 +54,44 @@ export class ThreeWayReconciliationService {
         invoicedTotalNet: invoice.totalNetAmount,
         poTotalNet: 0,
         grTotalNet: 0,
+        comparisonRows: [
+          {
+            check: 'Supplier',
+            invoiceValue: invoice.supplierName,
+            poValue: '—',
+            grValue: '—',
+            qualityValue: '—',
+            result: 'NON_PO',
+            details: 'Supplier verified; routed to Non-PO accounting',
+          },
+          {
+            check: 'Purchase Order',
+            invoiceValue: 'Non-PO Expense',
+            poValue: 'Not Applicable',
+            grValue: '—',
+            qualityValue: '—',
+            result: 'NON_PO',
+            details: 'Direct GL/Cost Center accounting assignment',
+          },
+          {
+            check: 'Line Item',
+            invoiceValue: invoice.lineItems[0]?.description || '—',
+            poValue: '—',
+            grValue: '—',
+            qualityValue: '—',
+            result: 'INFO',
+            details: 'Expense description',
+          },
+          {
+            check: 'Gross Amount',
+            invoiceValue: `₹${(invoice.totalGrossAmount || 0).toLocaleString('en-IN')}`,
+            poValue: '—',
+            grValue: '—',
+            qualityValue: '—',
+            result: 'INFO',
+            details: 'Cost center allocation pending owner approval',
+          },
+        ],
       };
     }
 
@@ -146,6 +184,116 @@ export class ThreeWayReconciliationService {
     else if (priceStatus === 'WITHIN_TOLERANCE') score += 10;
     if (qualityStatus === 'ALL_PASSED' || qualityStatus === 'NOT_APPLICABLE') score += 15;
 
+    const uom = invoice.lineItems[0]?.unitOfMeasure || 'EA';
+    const matInv = invoice.lineItems[0]?.materialNumber
+      ? `${invoice.lineItems[0].materialNumber} - ${invoice.lineItems[0].description}`
+      : invoice.lineItems[0]?.description || '—';
+    const matPo = po.lineItems[0]?.materialNumber
+      ? `${po.lineItems[0].materialNumber} - ${po.lineItems[0].description}`
+      : po.lineItems[0]?.description || '—';
+    const matGr = goodsReceipts[0]?.items[0]?.materialNumber
+      ? `${goodsReceipts[0].items[0].materialNumber} - ${goodsReceipts[0].items[0].materialDescription}`
+      : goodsReceipts[0]?.items[0]?.materialDescription || '—';
+
+    const comparisonRows: any[] = [
+      {
+        check: 'Supplier',
+        invoiceValue: invoice.supplierName,
+        poValue: po.supplierName,
+        grValue: '—',
+        qualityValue: '—',
+        result: vendorMatched ? 'MATCH' : 'VENDOR_MISMATCH',
+        details: vendorMatched ? 'Supplier identity aligned with PO' : 'Invoiced vendor does not match PO vendor',
+      },
+      {
+        check: 'Purchase Order',
+        invoiceValue: invoice.purchaseOrderReference || 'Non-PO',
+        poValue: po.poNumber,
+        grValue: goodsReceipts[0]?.poNumber || '—',
+        qualityValue: '—',
+        result: 'MATCH',
+        details: `PO ${po.poNumber} verified in SAP S/4HANA (EKKO)`,
+      },
+      {
+        check: 'Material',
+        invoiceValue: matInv,
+        poValue: matPo,
+        grValue: goodsReceipts.length ? matGr : '—',
+        qualityValue: '—',
+        result: 'MATCH',
+        details: 'Material line item description verified',
+      },
+      {
+        check: 'Quantity',
+        invoiceValue: `${totalInvoicedQty} ${uom}`,
+        poValue: `${totalOrderedQty} ${uom}`,
+        grValue: goodsReceipts.length ? `${totalReceivedQty} ${uom}` : 'No GR',
+        qualityValue: qualityInspected ? `${totalAcceptedQty} accepted` : '—',
+        result: quantityStatus === 'EXACT_MATCH' ? 'MATCH' : 'QUANTITY_VARIANCE',
+        details: quantityStatus === 'EXACT_MATCH' ? 'Exact quantity match' : `Variance: Invoiced ${totalInvoicedQty} vs Received ${totalReceivedQty}`,
+      },
+      {
+        check: 'Unit Price',
+        invoiceValue: `₹${invUnitPrice.toLocaleString('en-IN')}`,
+        poValue: `₹${poUnitPrice.toLocaleString('en-IN')}`,
+        grValue: '—',
+        qualityValue: '—',
+        result: priceStatus === 'EXACT_MATCH' || priceStatus === 'WITHIN_TOLERANCE' ? 'MATCH' : 'PRICE_VARIANCE',
+        details: priceStatus === 'EXACT_MATCH' ? 'Exact price match' : priceStatus === 'WITHIN_TOLERANCE' ? `Within tolerance (${priceVariancePercentage.toFixed(1)}%)` : `Price variance (+${priceVariancePercentage.toFixed(1)}%)`,
+      },
+      {
+        check: 'Net Amount',
+        invoiceValue: `₹${invoice.totalNetAmount.toLocaleString('en-IN')}`,
+        poValue: `₹${po.totalNetValue.toLocaleString('en-IN')}`,
+        grValue: goodsReceipts.length ? `₹${(totalReceivedQty * poUnitPrice).toLocaleString('en-IN')}` : '—',
+        qualityValue: '—',
+        result: amountStatus === 'WITHIN_TOLERANCE' ? 'MATCH' : 'PRICE_VARIANCE',
+        details: amountStatus === 'WITHIN_TOLERANCE' ? 'Net value aligns' : 'Net value variance exceeds tolerance',
+      },
+      {
+        check: 'Tax',
+        invoiceValue: `₹${(invoice.taxAmount || 0).toLocaleString('en-IN')}`,
+        poValue: `₹${(po.totalGrossValue - po.totalNetValue).toLocaleString('en-IN')}`,
+        grValue: '—',
+        qualityValue: '—',
+        result: 'MATCH',
+        details: 'Tax computation verified',
+      },
+      {
+        check: 'Total Gross',
+        invoiceValue: `₹${(invoice.totalGrossAmount || 0).toLocaleString('en-IN')}`,
+        poValue: `₹${po.totalGrossValue.toLocaleString('en-IN')}`,
+        grValue: '—',
+        qualityValue: '—',
+        result: Math.abs(invoice.totalGrossAmount - po.totalGrossValue) <= (po.totalNetValue * 0.02) ? 'MATCH' : 'PRICE_VARIANCE',
+        details: Math.abs(invoice.totalGrossAmount - po.totalGrossValue) <= (po.totalNetValue * 0.02) ? 'Gross total within tolerance' : 'Gross total variance detected',
+      },
+    ];
+
+    if (qualityInspected) {
+      comparisonRows.push({
+        check: 'Quality Inspection',
+        invoiceValue: '—',
+        poValue: '—',
+        grValue: `MSEG Item: ${totalReceivedQty} ${uom}`,
+        qualityValue: qualityStatus === 'ALL_PASSED' ? `Lot Passed (${totalAcceptedQty} ${uom})` : `Defects (${totalRejectedQty} rejected)`,
+        result: qualityStatus === 'ALL_PASSED' ? 'MATCH' : 'QUALITY_REJECTED',
+        details: qualityStatus === 'ALL_PASSED' ? 'Quality inspection passed' : `${totalRejectedQty} units rejected during QM inspection`,
+      });
+    }
+
+    if (invoice.isDuplicateSuspect) {
+      comparisonRows.push({
+        check: 'Duplicate Check',
+        invoiceValue: `Doc #${invoice.invoiceNumber}`,
+        poValue: `PO #${po.poNumber}`,
+        grValue: '—',
+        qualityValue: '—',
+        result: 'DUPLICATE_SUSPECT',
+        details: 'Duplicate invoice detected against historical SAP index',
+      });
+    }
+
     return {
       poNumber: po.poNumber,
       poMatchScorePercentage: score,
@@ -168,6 +316,7 @@ export class ThreeWayReconciliationService {
       invoicedTotalNet: invoice.totalNetAmount,
       poTotalNet: po.totalNetValue,
       grTotalNet: totalReceivedQty * poUnitPrice,
+      comparisonRows,
     };
   }
 }

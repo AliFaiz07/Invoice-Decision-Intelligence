@@ -47,6 +47,70 @@ export class AIDecisionEngine {
     // 1. HARD VALIDATION CONSTRAINTS (Gatekeepers)
     // ------------------------------------------------------------------------
 
+    // Check 0A: Already Processed & Paid (Scenario A)
+    if (invoice.postingStatus === 'POSTED' && (invoice.paymentStatus === 'PAID' || invoice.clearingStatus === 'CLEARED')) {
+      whatWasChecked.push(`SAP S/4HANA Accounting & Payment Index (BKPF/BSAK for Supplier ${invoice.supplierName}, Document ${invoice.accountingDocumentNumber || '5100001234'})`);
+      whatWasFound.push(`Matching posted invoice (${invoice.accountingDocumentNumber || '5100001234'}/${invoice.fiscalYear || '2026'}) and payment document (${invoice.paymentDocumentNumber || '2000012345'}) already exist.`);
+      whyRecommended.push('Matching posted invoice and payment already exist. Duplicate invoice submission and double disbursement prevented.');
+      suggestedAction = 'ALREADY PROCESSED / RECONCILED. No further action needed.';
+
+      return {
+        invoiceId: invoice.invoiceId,
+        recommendation: 'ALREADY_PROCESSED',
+        confidenceScore: 100,
+        riskLevel: 'LOW',
+        reconciliation,
+        explanation: {
+          whatWasChecked,
+          whatWasFound,
+          whyRecommended,
+          suggestedAction,
+        },
+        timestamp: new Date().toISOString(),
+        evaluatedSignals: [
+          {
+            code: 'SIG_ALREADY_PROCESSED',
+            description: 'SAP S/4HANA Posted & Paid Check',
+            passed: true,
+            impact: 100,
+            details: `Invoice already posted under BELNR ${invoice.accountingDocumentNumber} and cleared under document ${invoice.clearingDocumentNumber || invoice.paymentDocumentNumber}.`,
+          },
+        ],
+      };
+    }
+
+    // Check 0B: Posted but Payment Pending (Scenario C)
+    if (invoice.postingStatus === 'POSTED' && invoice.paymentStatus === 'PAYMENT_PENDING') {
+      whatWasChecked.push(`SAP S/4HANA Open Item AP Index (BSIK for Supplier ${invoice.supplierName}, Document ${invoice.accountingDocumentNumber || '5100001280'})`);
+      whatWasFound.push(`Supplier invoice is posted in SAP S/4HANA (BELNR ${invoice.accountingDocumentNumber}/${invoice.fiscalYear || '2026'}). AP Open Item pending disbursement.`);
+      whyRecommended.push('Invoice accounting document is registered in S/4HANA. Payment has not yet been executed.');
+      suggestedAction = 'PAYMENT FOLLOW-UP: Track payment run schedule or execute simulated AP disbursement.';
+
+      return {
+        invoiceId: invoice.invoiceId,
+        recommendation: 'PAYMENT_FOLLOW_UP',
+        confidenceScore: 95,
+        riskLevel: 'LOW',
+        reconciliation,
+        explanation: {
+          whatWasChecked,
+          whatWasFound,
+          whyRecommended,
+          suggestedAction,
+        },
+        timestamp: new Date().toISOString(),
+        evaluatedSignals: [
+          {
+            code: 'SIG_PAYMENT_PENDING',
+            description: 'SAP S/4HANA AP Open Item Check',
+            passed: true,
+            impact: 80,
+            details: `Accounting document ${invoice.accountingDocumentNumber} open in Company Code ${invoice.buyerCompanyCode}. Awaiting payment execution.`,
+          },
+        ],
+      };
+    }
+
     // Check A: Duplicate Invoice Check
     const fiscalYear = new Date().getFullYear().toString();
     const isDuplicate =

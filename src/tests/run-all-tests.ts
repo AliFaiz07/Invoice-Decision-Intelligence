@@ -371,6 +371,132 @@ async function runTestSuite() {
   assert(resetBatchStatus.channels.einvoice.processed === false, 'Reset Demo clears einvoice batch processed state');
   assert(fs.existsSync(physPdf) && fs.existsSync(emailEml) && fs.existsSync(einvPayload), 'Source mock fixtures intact and preserved on disk after reset');
 
+  // --------------------------------------------------------------------------
+  // TEST GROUP 9: End-to-End Invoice Decision & Payment Lifecycle Matrix (Tests 1-8)
+  // --------------------------------------------------------------------------
+  console.log('\n--- TEST GROUP 9: Lifecycle Matrix & Business Scenarios (Tests 1 to 8) ---');
+  const matrixRepo = new InvoiceRepository();
+
+  // Test 1: Perfect Match Full Lifecycle
+  console.log('Testing Test 1: Perfect Match Full Lifecycle...');
+  const t1Detail = await matrixRepo.getInvoiceDetail('INV-2026-00001');
+  assert(t1Detail !== null, 'Test 1: Invoice INV-2026-00001 extracted and loaded');
+  assert(t1Detail?.purchaseOrder?.poNumber === '4500012456', 'Test 1: Matched SAP Purchase Order 4500012456');
+  assert(Boolean(t1Detail?.reconciliation.vendorMatched && t1Detail?.reconciliation.poNumberMatched), 'Test 1: Three-way reconciliation matched PO and vendor');
+  assert(Boolean(t1Detail?.comparisonRows && t1Detail.comparisonRows.length >= 6), 'Test 1: Comparison table generated with full checks');
+  assert(t1Detail?.comparisonRows.every(r => r.result === 'MATCH') === true, 'Test 1: All comparison table rows indicate MATCH');
+
+  // Park MIR7
+  const t1Park = await matrixRepo.sapPostingService.parkInvoice(t1Detail!.invoice, 'Pre-verification park for standard workflow');
+  assert(t1Park.success && t1Detail!.invoice.postingStatus === 'PARKED', 'Test 1: Successfully parked in SAP (MIR7)');
+
+  // Business / Finance validation
+  const t1Validated = await matrixRepo.submitBusinessValidation({
+    invoiceId: 'INV-2026-00001',
+    action: 'ACCEPT',
+    userId: 'FIN_AP_MGR',
+    userName: 'Kavita Rao',
+    department: 'Accounts Payable',
+    costCenter: 'CC-1010-ENG',
+    reason: 'Approved for posting and payment run.',
+  });
+  assert(t1Validated.invoice.processingStatus === 'BUSINESS_VALIDATED', 'Test 1: Business validation accepted');
+
+  // Post MIRO
+  const t1Post = await matrixRepo.sapPostingService.postInvoice(t1Validated.invoice);
+  assert(t1Post.success && t1Validated.invoice.postingStatus === 'POSTED', 'Test 1: Posted to SAP (MIRO)');
+  assert(Boolean(t1Validated.invoice.accountingDocumentNumber?.startsWith('51056')), 'Test 1: Accounting document created (BELNR)');
+  assert(t1Validated.invoice.paymentStatus === 'PAYMENT_PENDING', 'Test 1: Payment status transitioned to PAYMENT_PENDING');
+
+  // Payment Execution (F110)
+  const t1Pay = await matrixRepo.sapPostingService.processPayment(t1Validated.invoice);
+  assert(t1Pay.success && t1Validated.invoice.paymentStatus === 'PAID', 'Test 1: Payment processed successfully (F110)');
+  assert(Boolean(t1Validated.invoice.paymentDocumentNumber?.startsWith('20000')), 'Test 1: Payment document created');
+
+  // Settlement Clearing (BSAK)
+  const t1Clear = await matrixRepo.sapPostingService.clearPayment(t1Validated.invoice);
+  assert(t1Clear.success && t1Validated.invoice.clearingStatus === 'CLEARED', 'Test 1: Clearing document created and status CLEARED');
+  assert(Boolean(t1Validated.invoice.clearingDocumentNumber), 'Test 1: BSAK clearing document registered');
+
+  // Test 2: Price Variance
+  console.log('Testing Test 2: Price Variance...');
+  const t2Detail = await matrixRepo.getInvoiceDetail('INV-2026-00005');
+  assert(t2Detail !== null, 'Test 2: Invoice INV-2026-00005 loaded');
+  assert(t2Detail?.reconciliation.priceStatus === 'EXCEEDED_TOLERANCE', 'Test 2: Price variance detected');
+  const t2PriceRow = t2Detail?.comparisonRows.find(r => r.check === 'Unit Price');
+  assert(t2PriceRow?.result === 'PRICE_VARIANCE', 'Test 2: Comparison table shows PRICE_VARIANCE result badge');
+  assert(t2Detail?.aiDecision.recommendation === 'MANUAL_REVIEW', 'Test 2: AI recommendation is MANUAL_REVIEW');
+  let t2PostBlocked = false;
+  if (t2Detail?.aiDecision.recommendation !== 'AUTO_PROCEED') {
+    t2PostBlocked = true;
+  }
+  assert(t2PostBlocked, 'Test 2: Price variance prevents auto-post without exception handling');
+
+  // Test 3: Quantity Variance
+  console.log('Testing Test 3: Quantity Variance...');
+  const t3Detail = await matrixRepo.getInvoiceDetail('INV-2026-00002');
+  assert(t3Detail !== null, 'Test 3: Invoice INV-2026-00002 loaded');
+  assert(t3Detail?.reconciliation.quantityStatus === 'OVER_DELIVERY', 'Test 3: Quantity variance detected');
+  const t3QtyRow = t3Detail?.comparisonRows.find(r => r.check === 'Quantity');
+  assert(t3QtyRow?.result === 'QUANTITY_VARIANCE', 'Test 3: Comparison table shows QUANTITY_VARIANCE result badge');
+  assert(t3Detail?.aiDecision.recommendation === 'MANUAL_REVIEW', 'Test 3: AI recommendation is MANUAL_REVIEW');
+
+  // Test 4: Duplicate Invoice
+  console.log('Testing Test 4: Duplicate Invoice...');
+  const t4Detail = await matrixRepo.getInvoiceDetail('INV-2026-00007');
+  assert(t4Detail !== null, 'Test 4: Invoice INV-2026-00007 loaded');
+  assert(t4Detail?.invoice.isDuplicateSuspect === true, 'Test 4: Invoice flagged as duplicate suspect');
+  const t4DupRow = t4Detail?.comparisonRows.find(r => r.check === 'Duplicate Check');
+  assert(t4DupRow?.result === 'DUPLICATE_SUSPECT', 'Test 4: Comparison table flags DUPLICATE_SUSPECT');
+  assert(t4Detail?.aiDecision.recommendation === 'HOLD', 'Test 4: AI recommends HOLD for duplicate invoice');
+
+  // Test 5: Scenario A (Already Posted + Paid in SAP)
+  console.log('Testing Test 5: Scenario A (Already Posted + Paid)...');
+  const t5Detail = await matrixRepo.getInvoiceDetail('INV-SCAN-641331');
+  assert(t5Detail !== null, 'Test 5: Scenario A invoice INV-SCAN-641331 loaded');
+  assert(t5Detail?.invoice.postingStatus === 'POSTED', 'Test 5: Invoice posting status is POSTED');
+  assert(t5Detail?.invoice.paymentStatus === 'PAID', 'Test 5: Invoice payment status is PAID');
+  assert(t5Detail?.aiDecision.recommendation === 'ALREADY_PROCESSED', 'Test 5: AI identifies invoice as ALREADY_PROCESSED');
+  const t5PostAttempt = await matrixRepo.sapPostingService.postInvoice(t5Detail!.invoice);
+  assert(t5PostAttempt.success === false, 'Test 5: Duplicate posting attempt is blocked');
+  const t5PayAttempt = await matrixRepo.sapPostingService.processPayment(t5Detail!.invoice);
+  assert(t5PayAttempt.success === false, 'Test 5: Duplicate payment attempt is blocked');
+
+  // Test 6: Scenario C (Already Posted + Payment Pending in SAP)
+  console.log('Testing Test 6: Scenario C (Already Posted + Payment Pending)...');
+  const t6Detail = await matrixRepo.getInvoiceDetail('INV-SCAN-514037');
+  assert(t6Detail !== null, 'Test 6: Scenario C invoice INV-SCAN-514037 loaded');
+  assert(t6Detail?.invoice.postingStatus === 'POSTED', 'Test 6: Invoice posting status is POSTED');
+  assert(t6Detail?.invoice.paymentStatus === 'PAYMENT_PENDING', 'Test 6: Invoice payment status is PAYMENT_PENDING');
+  assert(t6Detail?.aiDecision.recommendation === 'PAYMENT_FOLLOW_UP', 'Test 6: AI identifies invoice as PAYMENT_FOLLOW_UP');
+  const t6PostAttempt = await matrixRepo.sapPostingService.postInvoice(t6Detail!.invoice);
+  assert(t6PostAttempt.success === false, 'Test 6: Duplicate posting attempt is blocked');
+  const t6PayResult = await matrixRepo.sapPostingService.processPayment(t6Detail!.invoice);
+  assert(t6PayResult.success === true, 'Test 6: S/4HANA payment execution succeeds');
+  assert(t6Detail!.invoice.paymentStatus === 'PAID', 'Test 6: Payment status transitions to PAID');
+
+  // Test 7: Scenario B (New Invoice Full Lifecycle)
+  console.log('Testing Test 7: Scenario B (New Invoice Lifecycle)...');
+  const t7Detail = await matrixRepo.getInvoiceDetail('INV-2026-00003');
+  assert(t7Detail !== null, 'Test 7: Scenario B invoice INV-2026-00003 loaded');
+  assert(t7Detail?.invoice.postingStatus === 'NOT_POSTED', 'Test 7: Invoice starts NOT_POSTED');
+  assert(t7Detail?.invoice.paymentStatus === 'NOT_DUE', 'Test 7: Payment status starts NOT_DUE');
+  const t7DocChain = t7Detail!.documentChain;
+  assert(Boolean(t7DocChain && t7DocChain.length >= 7), 'Test 7: Document reference chain generated with comprehensive nodes');
+  assert(t7DocChain.some(n => n.type === 'SUPPLIER_INVOICE'), 'Test 7: Document chain includes SUPPLIER_INVOICE');
+  assert(t7DocChain.some(n => n.type === 'PURCHASE_ORDER'), 'Test 7: Document chain includes PURCHASE_ORDER');
+  assert(t7DocChain.some(n => n.type === 'GOODS_RECEIPT'), 'Test 7: Document chain includes GOODS_RECEIPT');
+
+  // Test 8: Quality Defect Invoice
+  console.log('Testing Test 8: Quality Defect Invoice...');
+  const t8Detail = await matrixRepo.getInvoiceDetail('INV-2026-00006');
+  assert(t8Detail !== null, 'Test 8: Invoice INV-2026-00006 loaded');
+  assert(t8Detail?.reconciliation.qualityStatus === 'REJECTIONS_DETECTED', 'Test 8: QM inspection failure detected');
+  const t8QmRow = t8Detail?.comparisonRows.find(r => r.check === 'Quality Inspection');
+  assert(t8QmRow?.result === 'QUALITY_REJECTED', 'Test 8: Comparison table shows QUALITY_REJECTED result badge');
+  assert(t8Detail?.aiDecision.recommendation === 'HOLD', 'Test 8: AI recommends HOLD for invoice with QM defects');
+  assert(t8Detail?.aiDecision.explanation.whatWasFound.some(f => f.includes('QUALITY DEFECT')) === true, 'Test 8: Explanation cites quality rejection');
+
 
 
   console.log('\n=================================================================');

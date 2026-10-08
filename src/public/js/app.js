@@ -812,6 +812,9 @@ class InvoiceDecisionApp {
         const recBadge = this.getRecommendationBadge(item.aiDecision.recommendation);
         const statusBadge = this.getProcessingStatusBadge(item.invoice.processingStatus);
 
+        const matchBadge = this.getMatchStatusBadge(item.reconciliation, item.invoice.purchaseOrderReference);
+        const paymentBadge = this.getPaymentStatusBadge(item.invoice.paymentStatus, item.invoice.clearingStatus);
+
         return `
           <tr>
             <td><strong>${item.invoice.invoiceId}</strong><br><small style="color:var(--text-secondary);">${item.invoice.invoiceNumber}</small></td>
@@ -824,9 +827,10 @@ class InvoiceDecisionApp {
             <td>${channelBadge}</td>
             <td>${item.invoice.purchaseOrderReference ? `<code>${item.invoice.purchaseOrderReference}</code>` : '<em style="color:var(--text-muted);">Non-PO</em>'}</td>
             <td><strong>₹${(item.invoice.totalGrossAmount || 0).toLocaleString('en-IN')}</strong></td>
+            <td>${matchBadge}</td>
             <td>${statusBadge}</td>
+            <td>${paymentBadge}</td>
             <td>${recBadge}</td>
-            <td><strong>${item.aiDecision.confidenceScore}%</strong></td>
             <td>
               <button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.selectAndOpenDecision('${item.invoice.invoiceId}')">
                 Decision Center
@@ -1030,15 +1034,26 @@ class InvoiceDecisionApp {
                 <span>View Source Document</span>
               </button>
               ${
-                invoice.processingStatus === 'POSTED_TO_SAP'
-                  ? `<span class="sap-badge sap-badge-success">${ICONS.check} POSTED TO SAP S/4HANA (BELNR ACTIVE)</span>`
-                  : invoice.processingStatus === 'PARKED_IN_SAP'
-                  ? `<span class="sap-badge sap-badge-warning">${ICONS.info} PARKED IN SAP S/4HANA (PAYMENT BLOCK R)</span>`
+                invoice.postingStatus === 'POSTED' || invoice.processingStatus === 'POSTED_TO_SAP'
+                  ? `
+                  <span class="sap-badge sap-badge-success">${ICONS.check} POSTED TO S/4HANA (BELNR ${invoice.accountingDocumentNumber || '5100001234'})</span>
+                  ${invoice.paymentStatus === 'PAID' || invoice.clearingStatus === 'CLEARED'
+                    ? `<span class="sap-badge sap-badge-success">${ICONS.checkCircle} ${invoice.clearingStatus === 'CLEARED' ? 'PAID & CLEARED' : 'PAID'} (DOC ${invoice.paymentDocumentNumber || '2000012345'})</span>
+                       ${invoice.clearingStatus !== 'CLEARED' ? `<button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.clearPayment('${invoice.invoiceId}')">Clear Settlement (BSAK)</button>` : ''}`
+                    : `<button class="sap-btn sap-btn-positive sap-btn-sm" onclick="app.processPayment('${invoice.invoiceId}')">Execute AP Payment Run (F110)</button>`
+                  }
+                  `
+                  : invoice.postingStatus === 'PARKED' || invoice.processingStatus === 'PARKED_IN_SAP'
+                  ? `
+                  <span class="sap-badge sap-badge-warning">${ICONS.info} PARKED IN S/4HANA (PAYMENT BLOCK R)</span>
+                  <button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.openValidationModal('${invoice.invoiceId}')">Validate as Owner</button>
+                  <button class="sap-btn sap-btn-positive sap-btn-sm" onclick="app.postToSAP('${invoice.invoiceId}')" ${aiDecision.recommendation === 'HOLD' || aiDecision.recommendation === 'REJECT' ? 'disabled style="opacity:0.5;"' : ''}>Post to S/4HANA (MIRO)</button>
+                  `
                   : `
                   <button class="sap-btn sap-btn-positive sap-btn-sm" onclick="app.postToSAP('${invoice.invoiceId}')" ${aiDecision.recommendation === 'HOLD' || aiDecision.recommendation === 'REJECT' ? 'disabled style="opacity:0.5;"' : ''}>Post to S/4HANA (MIRO)</button>
                   <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.parkInSAP('${invoice.invoiceId}')">Park Invoice (MIR7)</button>
                   <button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.openValidationModal('${invoice.invoiceId}')">Validate as Owner</button>
-                `
+                  `
               }
             </div>
           </div>
@@ -1051,7 +1066,7 @@ class InvoiceDecisionApp {
     const isGRReceived = reconciliation.quantityReceived > 0;
     const isQMApproved = reconciliation.qualityStatus === 'ALL_PASSED' || reconciliation.qualityStatus === 'NOT_APPLICABLE';
     const isBOValidated = invoice.processingStatus === 'BUSINESS_VALIDATED';
-    const isPosted = invoice.processingStatus === 'POSTED_TO_SAP';
+    const isPosted = invoice.postingStatus === 'POSTED' || invoice.processingStatus === 'POSTED_TO_SAP';
 
     const processStripHtml = `
       <div class="sap-card" style="padding:14px 20px;">
@@ -1144,102 +1159,221 @@ class InvoiceDecisionApp {
       </div>
     `;
 
-    // 4. EVIDENCE SECTION: DISTINGUISHING FACT FROM SYSTEM RECOMMENDATION
-    const evidenceList = aiDecision.evidence || [];
-    const evidenceHtml = `
+    // 3b. EVIDENCE-BASED COMPARISON TABLE (SECTION 10)
+    const compRows = item.comparisonRows || reconciliation.comparisonRows || [];
+    const comparisonTableHtml = `
       <div class="sap-card">
         <div class="sap-card-header">
-          <div class="sap-card-title">Evidence Ledger: Distinguishing Facts from System Recommendations</div>
-          <span class="sap-card-subtitle">Every automated inference is directly grounded in auditable ERP data</span>
+          <div>
+            <div class="sap-card-title">Evidence-Based Comparison & Validation Ledger</div>
+            <span class="sap-card-subtitle">Real side-by-side reconciliation between Billing Side (Invoice) and Expected / Received Side (SAP PO, GR, QM).</span>
+          </div>
         </div>
         <div class="sap-table-wrapper">
           <table class="sap-table">
             <thead>
               <tr>
-                <th style="width:170px;">Classification</th>
-                <th>Source / System Verification</th>
-                <th>Observed Evidence</th>
+                <th style="width:150px;">Check</th>
+                <th>Invoice (Billing Side)</th>
+                <th>Purchase Order (EKKO/EKPO)</th>
+                <th>Goods Receipt (MSEG)</th>
+                <th>Quality (QM / QALS)</th>
+                <th style="width:160px; text-align:center;">Validation Result</th>
               </tr>
             </thead>
             <tbody>
-              ${evidenceList
-                .map(
-                  (ev) => `
-                <tr>
-                  <td>
-                    <span class="${ev.category === 'FACT' ? 'badge-fact' : 'badge-recommendation'}">
-                      ${ev.category}
-                    </span>
-                  </td>
-                  <td><code>${ev.source}</code></td>
-                  <td>${ev.statement}</td>
-                </tr>
-              `
-                )
-                .join('')}
+              ${compRows.map((r) => {
+                let badgeClass = 'sap-badge-success';
+                let icon = ICONS.checkCircle;
+                let text = r.result;
+                if (r.result === 'PRICE_VARIANCE' || r.result === 'QUANTITY_VARIANCE') {
+                  badgeClass = 'sap-badge-warning';
+                  icon = ICONS.alertTriangle;
+                  text = r.result.replace('_', ' ');
+                } else if (r.result === 'VENDOR_MISMATCH' || r.result === 'QUALITY_REJECTED') {
+                  badgeClass = 'sap-badge-error';
+                  icon = ICONS.xCircle;
+                  text = r.result.replace('_', ' ');
+                } else if (r.result === 'NON_PO' || r.result === 'INFO') {
+                  badgeClass = 'sap-badge-neutral';
+                  icon = ICONS.info;
+                }
+                return `
+                  <tr>
+                    <td><strong>${r.check}</strong></td>
+                    <td><strong>${r.invoiceValue}</strong></td>
+                    <td>${r.poValue}</td>
+                    <td>${r.grValue}</td>
+                    <td>${r.qualityValue}</td>
+                    <td style="text-align:center;">
+                      <span class="sap-badge ${badgeClass}" title="${r.details || ''}">
+                        ${icon} ${text}
+                      </span>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
             </tbody>
           </table>
         </div>
       </div>
     `;
 
-    // 5. DECISION EXPLAINER & TRANSACTION STORY SIDE-BY-SIDE
-    const explainerSteps = aiDecision.decisionExplainer || [];
-    const storyEvents = aiDecision.transactionStory || [];
-
-    const explainerAndStoryHtml = `
-      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
-        <!-- Left: Why This Decision? Explainer -->
-        <div class="sap-card" style="padding:16px 20px;">
-          <div style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-secondary); margin-bottom:12px;">
-            Why This Decision? (Step-by-Step Rationale)
-          </div>
-          <div style="display:flex; flex-direction:column; gap:10px;">
-            ${explainerSteps
-              .map(
-                (step) => `
-              <div style="border:1px solid var(--border-subtle); border-radius:var(--radius-input); padding:10px 12px; background:var(--surface-subtle);">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                  <strong style="font-size:12px; color:var(--text-primary);">${step.stepNumber} &nbsp;${step.title}</strong>
-                  <span class="sap-badge ${step.status === 'PASS' ? 'sap-badge-success' : step.status === 'WARNING' ? 'sap-badge-warning' : 'sap-badge-error'}">${step.status}</span>
-                </div>
-                <div style="font-size:12px; color:var(--text-secondary); line-height:1.4;">
-                  ${step.findings.join(' | ')}
-                </div>
-              </div>
-            `
-              )
-              .join('')}
-            <div style="background:var(--bg-success); border:1px solid #86EFAC; border-radius:var(--radius-input); padding:10px 12px; font-size:12px; color:#188038; font-weight:600; display:flex; align-items:center; gap:6px;">
-              ${ICONS.checkCircle}
-              <span>CONCLUSION: ${aiDecision.recommendation.replace(/_/g, ' ')} (${aiDecision.confidenceScore}% Confidence)</span>
-            </div>
+    // 4. DOCUMENT REFERENCE CHAIN (SECTION 28)
+    const docChain = item.documentChain || [];
+    const documentChainHtml = `
+      <div class="sap-card" style="padding:16px 20px;">
+        <div class="sap-card-header" style="padding:0 0 12px 0;">
+          <div>
+            <div class="sap-card-title">Document Reference Chain</div>
+            <span class="sap-card-subtitle">End-to-end relational audit trace across ERP business documents. Uncreated documents are explicitly marked.</span>
           </div>
         </div>
-
-        <!-- Right: Transaction Story Timeline -->
-        <div class="sap-card" style="padding:16px 20px;">
-          <div style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-secondary); margin-bottom:12px;">
-            Transaction Story (Lifecycle Trace)
-          </div>
-          <div>
-            ${storyEvents
-              .map(
-                (ev) => `
-              <div class="transaction-story-step step-${ev.statusType}">
-                <div class="story-time">${ev.timeFormatted}</div>
-                <div class="story-title">${ev.title}</div>
-                <div class="story-detail">${ev.detail}</div>
+        <div class="doc-chain-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+          ${docChain.map((node, idx) => {
+            const isCreated = node.referenceNumber !== 'NOT CREATED' && node.status !== 'NOT CREATED';
+            return `
+              <div style="border:1px solid ${isCreated ? 'var(--border-main)' : 'var(--border-subtle)'}; border-radius:var(--radius-card); padding:12px; background:${isCreated ? 'var(--surface-card)' : 'var(--surface-subtle)'}; opacity:${isCreated ? '1' : '0.65'};">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                  <span style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">${idx + 1}. ${node.label}</span>
+                  <span class="sap-badge ${isCreated ? 'sap-badge-success' : 'sap-badge-neutral'}" style="font-size:10px; padding:1px 6px;">
+                    ${node.status}
+                  </span>
+                </div>
+                <div style="font-size:13px; font-weight:700; color:${isCreated ? 'var(--text-primary)' : 'var(--text-muted)'}; font-family:monospace;">
+                  ${node.referenceNumber}
+                </div>
+                <div style="font-size:11px; color:var(--text-secondary); margin-top:4px;">
+                  Source: ${node.source}
+                </div>
+                ${node.timestamp ? `<div style="font-size:10px; color:var(--text-muted); margin-top:2px;">Date: ${node.timestamp.slice(0, 10)}</div>` : ''}
               </div>
-            `
-              )
-              .join('')}
-          </div>
+            `;
+          }).join('')}
         </div>
       </div>
     `;
 
-    workspace.innerHTML = topQuestionsHtml + processStripHtml + threeWayBoxHtml + evidenceHtml + explainerAndStoryHtml;
+    // 5. AP PAYMENT STATUS & SETTLEMENT CARD (SECTION 21)
+    const paymentStatusHtml = `
+      <div class="sap-card" style="padding:16px 20px;">
+        <div class="sap-card-header" style="padding:0 0 12px 0;">
+          <div>
+            <div class="sap-card-title">AP Payment Status & Settlement Overview</div>
+            <span class="sap-card-subtitle">Accounts Payable disbursement lifecycle and settlement status in SAP FI-AP.</span>
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-top:8px;">
+          <div style="padding:12px; border-radius:var(--radius-input); background:var(--surface-subtle); border:1px solid var(--border-subtle);">
+            <div style="font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase;">Invoice Posting Status</div>
+            <div style="font-size:14px; font-weight:700; margin-top:4px;">
+              ${invoice.postingStatus === 'POSTED' ? '<span style="color:#188038;">POSTED (MIRO)</span>' : invoice.postingStatus === 'PARKED' ? '<span style="color:#B45309;">PARKED (MIR7)</span>' : '<span style="color:var(--text-muted);">NOT POSTED</span>'}
+            </div>
+            <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">
+              Doc: ${invoice.accountingDocumentNumber ? `<code>${invoice.accountingDocumentNumber}/${invoice.fiscalYear || '2026'}</code>` : 'None'}
+            </div>
+          </div>
+
+          <div style="padding:12px; border-radius:var(--radius-input); background:var(--surface-subtle); border:1px solid var(--border-subtle);">
+            <div style="font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase;">Payment Status</div>
+            <div style="font-size:14px; font-weight:700; margin-top:4px;">
+              ${this.getPaymentStatusBadge(invoice.paymentStatus, invoice.clearingStatus)}
+            </div>
+            <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">
+              Ref: ${invoice.paymentReference ? `<code>${invoice.paymentReference}</code>` : (invoice.paymentStatus === 'PAID' ? 'PAY-2026-ACTIVE' : 'Not Available')}
+            </div>
+          </div>
+
+          <div style="padding:12px; border-radius:var(--radius-input); background:var(--surface-subtle); border:1px solid var(--border-subtle);">
+            <div style="font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase;">Clearing Status</div>
+            <div style="font-size:14px; font-weight:700; margin-top:4px;">
+              ${invoice.clearingStatus === 'CLEARED' ? '<span style="color:#188038;">CLEARED (BSAK)</span>' : '<span style="color:var(--text-muted);">OPEN / UNSETTLED</span>'}
+            </div>
+            <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">
+              Doc: ${invoice.clearingDocumentNumber ? `<code>${invoice.clearingDocumentNumber}</code>` : 'Not Cleared'}
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border-subtle); display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          ${invoice.postingStatus === 'POSTED' && invoice.paymentStatus !== 'PAID' && invoice.clearingStatus !== 'CLEARED'
+            ? `<button class="sap-btn sap-btn-positive sap-btn-sm" onclick="app.processPayment('${invoice.invoiceId}')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                <span>Execute AP Payment Run (F110)</span>
+               </button>`
+            : ''
+          }
+          ${invoice.paymentStatus === 'PAID' && invoice.clearingStatus !== 'CLEARED'
+            ? `<button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.clearPayment('${invoice.invoiceId}')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                <span>Execute Settlement Clearing (BSAK)</span>
+               </button>`
+            : ''
+          }
+          ${invoice.clearingStatus === 'CLEARED'
+            ? `<span style="font-size:12px; color:#188038; font-weight:600; display:flex; align-items:center; gap:6px;">
+                ${ICONS.checkCircle} Reconciled & Completely Settled in SAP S/4HANA
+               </span>`
+            : ''
+          }
+        </div>
+      </div>
+    `;
+
+    // 6. INVOICE AUDIT TRAIL LEDGER (SECTION 31)
+    const invoiceAuditEvents = item.auditTrail || [];
+    const invoiceAuditTrailHtml = `
+      <div class="sap-card">
+        <div class="sap-card-header">
+          <div>
+            <div class="sap-card-title">Invoice Audit Trail Ledger</div>
+            <span class="sap-card-subtitle">Every automated inference, human sign-off, and ERP status change recorded with immutable provenance.</span>
+          </div>
+        </div>
+        <div class="sap-table-wrapper">
+          <table class="sap-table">
+            <thead>
+              <tr>
+                <th style="width:140px;">Timestamp</th>
+                <th>Actor</th>
+                <th>Action</th>
+                <th>State Transition</th>
+                <th>Reason / Justification</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${invoiceAuditEvents.length === 0
+                ? `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:16px;">No audit events recorded yet for this invoice.</td></tr>`
+                : invoiceAuditEvents.map((ev) => `
+                  <tr>
+                    <td><small>${ev.timestamp ? ev.timestamp.replace('T', ' ').slice(0, 19) : '—'}</small></td>
+                    <td><strong>${ev.actorName || ev.actorId}</strong><br><small style="color:var(--text-muted);">${ev.actorRole || ''}</small></td>
+                    <td><code>${ev.action}</code></td>
+                    <td>
+                      <span class="sap-badge sap-badge-neutral">${ev.previousState || 'NONE'}</span>
+                      <span style="margin:0 4px;">&rarr;</span>
+                      <span class="sap-badge sap-badge-info">${ev.newState || ''}</span>
+                    </td>
+                    <td style="font-size:12px;">${ev.justification || '—'}</td>
+                  </tr>
+                `).join('')
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    workspace.innerHTML =
+      topQuestionsHtml +
+      processStripHtml +
+      threeWayBoxHtml +
+      comparisonTableHtml +
+      documentChainHtml +
+      paymentStatusHtml +
+      evidenceHtml +
+      explainerAndStoryHtml +
+      invoiceAuditTrailHtml;
   }
 
   // --------------------------------------------------------------------------
@@ -2517,6 +2651,46 @@ class InvoiceDecisionApp {
     }
   }
 
+  async processPayment(invoiceId) {
+    try {
+      const res = await safeFetchJson(`/api/invoices/${invoiceId}/payment/process`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actorId: 'AP_TREASURY', actorName: 'Treasury & Disbursement Specialist' }),
+      });
+
+      if (res.paymentResult && res.paymentResult.success) {
+        this.showToast(res.paymentResult.message, 'success');
+        await this.loadAllData();
+        this.renderCurrentView();
+      } else if (res.paymentResult) {
+        this.showToast(res.paymentResult.message, 'info');
+      }
+    } catch (e) {
+      this.showToast('SAP Payment Failed: ' + (e.message || 'Network error'), 'error');
+    }
+  }
+
+  async clearPayment(invoiceId) {
+    try {
+      const res = await safeFetchJson(`/api/invoices/${invoiceId}/payment/clear`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actorId: 'AP_TREASURY', actorName: 'General Ledger Clearing Robot' }),
+      });
+
+      if (res.clearingResult && res.clearingResult.success) {
+        this.showToast(res.clearingResult.message, 'success');
+        await this.loadAllData();
+        this.renderCurrentView();
+      } else if (res.clearingResult) {
+        this.showToast(res.clearingResult.message, 'info');
+      }
+    } catch (e) {
+      this.showToast('SAP Clearing Failed: ' + (e.message || 'Network error'), 'error');
+    }
+  }
+
   // --------------------------------------------------------------------------
   // ACTIONS: CONTEXTUAL BUSINESS OWNER VALIDATION
   // --------------------------------------------------------------------------
@@ -2652,6 +2826,12 @@ class InvoiceDecisionApp {
         return `<span class="sap-badge sap-badge-warning">${ICONS.alertTriangle} Manual Review</span>`;
       case 'HOLD':
         return `<span class="sap-badge sap-badge-error">${ICONS.alertTriangle} Hold</span>`;
+      case 'POTENTIAL_DUPLICATE':
+        return `<span class="sap-badge sap-badge-error">${ICONS.alertTriangle} Duplicate Block</span>`;
+      case 'ALREADY_PROCESSED':
+        return `<span class="sap-badge sap-badge-success">${ICONS.checkCircle} Reconciled / Done</span>`;
+      case 'PAYMENT_FOLLOW_UP':
+        return `<span class="sap-badge sap-badge-warning">${ICONS.info} Payment Follow-up</span>`;
       case 'REJECT':
         return `<span class="sap-badge sap-badge-error">${ICONS.xCircle} Reject</span>`;
       case 'NON_PO_PROCESS':
@@ -2659,6 +2839,48 @@ class InvoiceDecisionApp {
       default:
         return `<span class="sap-badge sap-badge-neutral">${rec}</span>`;
     }
+  }
+
+  getPaymentStatusBadge(status, clearingStatus) {
+    if (clearingStatus === 'CLEARED') {
+      return `<span class="sap-badge sap-badge-success">${ICONS.check} CLEARED</span>`;
+    }
+    switch (status) {
+      case 'PAID':
+        return `<span class="sap-badge sap-badge-success">${ICONS.checkCircle} PAID</span>`;
+      case 'PAYMENT_PENDING':
+        return `<span class="sap-badge sap-badge-warning">${ICONS.info} PENDING</span>`;
+      case 'PARTIALLY_PAID':
+        return `<span class="sap-badge sap-badge-warning">${ICONS.info} PARTIAL</span>`;
+      case 'BLOCKED':
+        return `<span class="sap-badge sap-badge-error">${ICONS.xCircle} BLOCKED</span>`;
+      case 'NOT_DUE':
+        return `<span class="sap-badge sap-badge-neutral">${ICONS.clock} NOT DUE</span>`;
+      default:
+        return `<span class="sap-badge sap-badge-neutral">${ICONS.clock} NOT PROCESSED</span>`;
+    }
+  }
+
+  getMatchStatusBadge(recon, poRef) {
+    if (!poRef) {
+      return `<span class="sap-badge sap-badge-neutral">NON-PO</span>`;
+    }
+    if (!recon) {
+      return `<span class="sap-badge sap-badge-neutral">PENDING</span>`;
+    }
+    if (!recon.vendorMatched) {
+      return `<span class="sap-badge sap-badge-error">VENDOR MISMATCH</span>`;
+    }
+    if (recon.quantityStatus === 'OVER_DELIVERY' || recon.quantityStatus === 'UNDER_DELIVERY') {
+      return `<span class="sap-badge sap-badge-warning">QTY VARIANCE</span>`;
+    }
+    if (recon.priceStatus === 'EXCEEDED_TOLERANCE') {
+      return `<span class="sap-badge sap-badge-warning">PRICE VARIANCE</span>`;
+    }
+    if (recon.qualityStatus === 'REJECTIONS_DETECTED') {
+      return `<span class="sap-badge sap-badge-error">QM DEFECT</span>`;
+    }
+    return `<span class="sap-badge sap-badge-success">MATCHED</span>`;
   }
 
   getChannelBadge(channel) {

@@ -34,6 +34,16 @@ const repository = new InvoiceRepository();
 // Mount API routes
 app.use('/api', createApiRouter(repository));
 
+// Explicit 404 handler for API routes (prevents returning index.html as JSON)
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: `API endpoint not found: ${req.method} ${req.originalUrl}` });
+});
+
+// Explicit 404 handler for static inbound documents and mock assets
+app.use(['/inbound-docs', '/mock-data'], (req, res) => {
+  res.status(404).json({ error: `Document or fixture not found: ${req.originalUrl}` });
+});
+
 // Catch-all route to serve SAP Fiori SPA
 app.get('*', (req, res) => {
   res.sendFile(path.join(publicDir, 'index.html'));
