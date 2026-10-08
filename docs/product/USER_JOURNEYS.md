@@ -1,4 +1,4 @@
-# SAP Invoice Decision Intelligence — User Journeys & Demo Narrative
+# Invoice Decision Intelligence — User Journeys & Demo Narrative
 **Document ID:** PROD-JOURNEY-004  
 **Version:** 1.0.0  
 

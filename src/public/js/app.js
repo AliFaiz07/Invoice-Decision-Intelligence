@@ -1,6 +1,6 @@
 /**
  * REUSABLE ENTERPRISE AI FRONTEND DESIGN SYSTEM
- * Application Controller: SAP Invoice Decision Intelligence
+ * Application Controller: Invoice Decision Intelligence
  * 
  * Strict Enterprise Iconography:
  * Zero Emojis / Zero Decorative Unicode Symbols.
@@ -267,7 +267,7 @@ class InvoiceDecisionApp {
     const viewConfig = {
       landing: {
         bc: 'Product Overview',
-        title: 'SAP Invoice Decision Intelligence',
+        title: 'Invoice Decision Intelligence',
         sub: 'Bring vendor invoices from multiple channels into one intelligent decision workflow, validate them against SAP business context, and route approved invoices toward Finance.',
         actions: `
           <button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.switchView('decisionCenter')">

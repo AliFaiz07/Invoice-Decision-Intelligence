@@ -1,5 +1,5 @@
 /**
- * SAP Invoice Decision Intelligence — API Routes Definition
+ * Invoice Decision Intelligence — API Routes Definition
  */
 
 import { Router, Request, Response } from 'express';
@@ -23,7 +23,7 @@ export function createApiRouter(repository: InvoiceRepository): Router {
   router.get('/health', (req: Request, res: Response) => {
     res.json({
       status: 'UP',
-      system: 'SAP Invoice Decision Intelligence Layer',
+      system: 'Invoice Decision Intelligence Layer',
       mode: process.env.DEMO_MODE !== 'false' ? 'DEMO_MODE' : 'PRODUCTION_MODE',
       platform: 'SAP Business Technology Platform (Cloud Foundry / Kyma)',
       targetERP: 'SAP S/4HANA Cloud Public Edition 2023',

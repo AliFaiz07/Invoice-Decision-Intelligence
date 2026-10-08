@@ -1,7 +1,7 @@
 {
   "name": "sap-invoice-decision-intelligence",
   "version": "1.0.0",
-  "description": "SAP Invoice Decision Intelligence Layer on SAP BTP and S/4HANA",
+  "description": "Invoice Decision Intelligence Layer on SAP BTP and S/4HANA",
   "main": "dist/server.js",
   "scripts": {
     "build": "tsc && xcopy /E /I /Y src\\public dist\\public",

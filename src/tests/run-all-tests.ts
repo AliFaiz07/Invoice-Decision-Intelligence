@@ -1,5 +1,5 @@
 /**
- * SAP Invoice Decision Intelligence — Enterprise Test Suite
+ * Invoice Decision Intelligence — Enterprise Test Suite
  * Validates all 8 scenarios, 3-way matching, tolerance keys, duplicate detection,
  * SLA calculations, Business Owner validation, and SAP posting adapters.
  */
@@ -24,7 +24,7 @@ function assert(condition: boolean, testName: string, details?: string) {
 
 async function runTestSuite() {
   console.log('=================================================================');
-  console.log('  STARTING SAP INVOICE DECISION INTELLIGENCE TEST SUITE');
+  console.log('  STARTING INVOICE DECISION INTELLIGENCE TEST SUITE');
   console.log('=================================================================\n');
 
   const repo = new InvoiceRepository();

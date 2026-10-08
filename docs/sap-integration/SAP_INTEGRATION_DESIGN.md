@@ -1,4 +1,4 @@
-# SAP Invoice Decision Intelligence — SAP Integration Architecture Design
+# Invoice Decision Intelligence — SAP Integration Architecture Design
 **Document ID:** INT-S4H-BTP-DES-004  
 **Integration Domain:** SAP BTP Integration Suite & SAP S/4HANA Core  
 **Standard SAP Alignment:** SAP S/4HANA Cloud Public APIs, SAP Event Mesh, SAP Document and Reporting Compliance (DRC)  

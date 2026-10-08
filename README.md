@@ -1,6 +1,6 @@
-# SAP Invoice Decision Intelligence
+# Invoice Decision Intelligence
 
-> **Enterprise-Grade SAP BTP Cognitive Validation, 3-Way Reconciliation & Explainable Decision Layer for SAP S/4HANA**
+> **Enterprise Invoice Decision Platform — Cognitive Validation, 3-Way Reconciliation & Explainable Decision Layer for SAP S/4HANA**
 
 [![SAP BTP Clean Core](https://img.shields.io/badge/SAP%20BTP-Clean%20Core-0070F2?style=flat&logo=sap)](https://www.sap.com)
 [![SAP S/4HANA Public Cloud](https://img.shields.io/badge/SAP%20S%2F4HANA-Cloud%202023-0854A0?style=flat&logo=sap)](https://api.sap.com)
@@ -11,7 +11,7 @@
 
 ## 1. Executive Overview
 
-**SAP Invoice Decision Intelligence** is an enterprise-grade cognitive layer built for **SAP Business Technology Platform (SAP BTP)** that sits between multi-channel invoice intake and **SAP S/4HANA** Logistics Invoice Verification (LIV).
+**Invoice Decision Intelligence** is an enterprise-grade cognitive layer built for **SAP Business Technology Platform (SAP BTP)** that sits between multi-channel invoice intake and **SAP S/4HANA** Logistics Invoice Verification (LIV).
 
 Rather than functioning as a generic OCR tool, the system provides **SAP Decision Intelligence**: it interprets the procurement context around each invoice, executes deterministic three-way matching against SAP Purchase Orders and Material Documents (Goods Receipts), evaluates SAP LIV tolerance keys (`DQ`, `PP`, `BD`), identifies and workflows Business Owner validations, detects anomalies (duplicate submissions, quality defects, vendor mismatches), and produces structured, audit-ready **Explainable AI (XAI)** decisions.
 
@@ -103,7 +103,7 @@ Every invoice evaluation produces an un-blackboxed, auditable 4-part explanation
 ## 5. UI/UX: SAP Fiori Morning Horizon
 
 The frontend strictly implements SAP Fiori Morning Horizon design guidelines:
-- **SAP Shell Bar:** Branded header with SAP logo, `SAP DEMO MODE = ON` indicator, and user profile.
+- **SAP Shell Bar:** Header with `SAP DEMO MODE = ON` indicator and user profile.
 - **10 Core Navigation Views:**
   1. `Dashboard`: Enterprise KPI tiles, channel inflow metrics, and scenario launchpad.
   2. `Invoice Inbox`: High-density Fiori table with multi-channel and text search filters.

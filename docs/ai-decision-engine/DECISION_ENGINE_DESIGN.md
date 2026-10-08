@@ -1,4 +1,4 @@
-# SAP Invoice Decision Intelligence — AI Decision Engine Design
+# Invoice Decision Intelligence — AI Decision Engine Design
 **Document ID:** AI-S4H-BTP-ENG-003  
 **Subsystem:** Decision Intelligence & Explainability Engine  
 **SAP Framework Alignment:** SAP S/4HANA Logistics Invoice Verification (LIV), Tolerance Keys, SAP Business AI  
@@ -12,7 +12,7 @@ Traditional invoice processing systems suffer from two extremes:
 1. **Dumb Rule Engines:** Rigid boolean filters that fail completely on minor rounding variances, creating endless false-positive exceptions that overwhelm AP staff.
 2. **Black-Box AI Models:** Deep learning classifiers that output an opaque confidence score (e.g. `Approved 91.4%`) without explainability, making them un-auditable under SOX 404, IFRS, and statutory tax governance.
 
-The **SAP Invoice Decision Intelligence Engine** solves this via a **Hybrid Deterministic-Heuristic Signal Synthesizer**:
+The **Invoice Decision Intelligence Engine** solves this via a **Hybrid Deterministic-Heuristic Signal Synthesizer**:
 - **Hard Validation Constraints (Gatekeepers):** Binary compliance checks derived directly from SAP S/4HANA transactional integrity rules.
 - **Cognitive Intelligence Signals:** Weighted scoring across variance tolerances, historical vendor reliability, duplicate fingerprinting, and receipt timing anomalies.
 - **Explainable AI (XAI) Output Contract:** Every decision produces a 4-part structured rationale:

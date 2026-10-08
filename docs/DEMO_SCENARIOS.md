@@ -1,7 +1,7 @@
-# SAP Invoice Decision Intelligence — Enterprise Scenario Catalog
+# Invoice Decision Intelligence — Enterprise Scenario Catalog
 
 **Document Purpose:** Detailed Scenario Ledger & Use-Case Mapping  
-**Project:** SAP Invoice Decision Intelligence  
+**Project:** Invoice Decision Intelligence  
 **Target Environment:** SAP S/4HANA & SAP BTP Reference Architecture  
 
 ---

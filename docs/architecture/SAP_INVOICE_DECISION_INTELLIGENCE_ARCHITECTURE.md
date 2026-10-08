@@ -1,4 +1,4 @@
-# SAP Invoice Decision Intelligence — Architecture Design Document
+# Invoice Decision Intelligence — Architecture Design Document
 **Document ID:** ARCH-S4H-BTP-INV-001  
 **Target Platform:** SAP Business Technology Platform (SAP BTP) & SAP S/4HANA (Cloud / On-Premise)  
 **Status:** Approved for Implementation  
@@ -15,7 +15,7 @@ In global enterprise deployments, Accounts Payable (AP) and Procurement departme
 
 Traditional optical character recognition (OCR) tools merely extract strings into key-value pairs without business context. Conversely, SAP S/4HANA Logistics Invoice Verification (LIV, transaction MIRO/MR8M) expects clean, pre-validated data, causing AP teams to spend thousands of hours reconciling quantities, checking goods receipts, resolving price variances, chasing business owners for non-PO cost approvals, and preventing duplicate disbursements.
 
-**SAP Invoice Decision Intelligence** is an enterprise-grade intelligence and orchestration layer residing on **SAP Business Technology Platform (BTP)**. It acts as the intelligent cognitive buffer between multi-channel invoice ingestion and the SAP S/4HANA core. It performs:
+**Invoice Decision Intelligence** is an enterprise-grade intelligence and orchestration layer residing on **SAP Business Technology Platform (BTP)**. It acts as the intelligent cognitive buffer between multi-channel invoice ingestion and the SAP S/4HANA core. It performs:
 - Multi-channel intake normalization into canonical SAP invoice models.
 - Deep cross-referencing with SAP S/4HANA Business Partner, Purchase Order (PO), and Goods Receipt (GR/Material Document) data.
 - Automated Three-Way Matching (PO vs. GR vs. IR) with tolerance checking.

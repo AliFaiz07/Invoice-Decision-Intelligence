@@ -551,7 +551,7 @@ def generate_irp_payload(inv, supp):
 
 def main():
     print("===============================================================")
-    print("  SAP INVOICE DECISION INTELLIGENCE — INBOUND GENERATOR")
+    print("  INVOICE DECISION INTELLIGENCE — INBOUND GENERATOR")
     print("===============================================================")
     print(f"Base Directory: {BASE_DIR}")
     print(f"Browser for PDF conversion: {BROWSER_PATH}")

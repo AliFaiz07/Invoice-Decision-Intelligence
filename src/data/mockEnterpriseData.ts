@@ -1,5 +1,5 @@
 /**
- * SAP Invoice Decision Intelligence — Enterprise Master & Scenario Mock Data
+ * Invoice Decision Intelligence — Enterprise Master & Scenario Mock Data
  * All data is realistically constructed with full relational consistency and clearly labeled DEMO / MOCK.
  */
 

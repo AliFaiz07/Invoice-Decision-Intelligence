@@ -1,4 +1,4 @@
-# SAP Invoice Decision Intelligence — Information Architecture
+# Invoice Decision Intelligence — Information Architecture
 **Document ID:** PROD-IA-002  
 **Version:** 1.0.0  
 
@@ -9,7 +9,7 @@
 The system architecture employs a restrained enterprise shell without superfluous navigation tabs:
 
 ```text
-SAP INVOICE DECISION INTELLIGENCE (SHELL)
+INVOICE DECISION INTELLIGENCE (SHELL)
 │
 ├── 01. Home / Command Center
 │       ├── Attention Queue (Urgent Invoices needing Human Action)

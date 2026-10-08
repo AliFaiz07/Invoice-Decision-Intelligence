@@ -1,4 +1,4 @@
-# SAP Invoice Decision Intelligence — UX Principles & Design System
+# Invoice Decision Intelligence — UX Principles & Design System
 **Document ID:** PROD-UX-003  
 **Design Reference:** SAP Fiori Morning Horizon UX Guidelines  
 **Version:** 1.0.0  

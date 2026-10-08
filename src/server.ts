@@ -1,5 +1,5 @@
 /**
- * SAP Invoice Decision Intelligence — Enterprise Application Server
+ * Invoice Decision Intelligence — Enterprise Application Server
  * Runs on SAP BTP Cloud Foundry / Kyma / Local Node.js Runtime
  */
 
@@ -41,7 +41,7 @@ app.get('*', (req, res) => {
 
 app.listen(port, () => {
   console.log(`=================================================================`);
-  console.log(`  SAP INVOICE DECISION INTELLIGENCE — RUNNING`);
+  console.log(`  INVOICE DECISION INTELLIGENCE — RUNNING`);
   console.log(`  URL: http://localhost:${port}`);
   console.log(`  Target Architecture: SAP BTP & SAP S/4HANA (Clean Core)`);
   console.log(`  Mode: ${process.env.DEMO_MODE !== 'false' ? 'SAP DEMO MODE (ON)' : 'PRODUCTION'}`);

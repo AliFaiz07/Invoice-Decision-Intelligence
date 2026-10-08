@@ -1,4 +1,4 @@
-# SAP Invoice Decision Intelligence — Demo Runbook
+# Invoice Decision Intelligence — Demo Runbook
 
 **Purpose:** Live Operator Cheat-Sheet & Demo Script  
 **Target Duration:** 7–10 Minutes  
@@ -63,7 +63,7 @@ TIMELINE SUMMARY
   >
   > *Today, Accounts Payable clerks are stuck playing detective—manually checking POs, verifying warehouse deliveries, and sending endless emails to department heads asking if services were delivered.*
   >
-  > *SAP Invoice Decision Intelligence acts as an intelligent layer on SAP BTP. It brings all three channels together, matches invoices against SAP S/4HANA business context, and puts the commercial decision directly in front of the Business Owner before Finance processes payment."*
+  > *Invoice Decision Intelligence acts as an intelligent layer on SAP BTP. It brings all three channels together, matches invoices against SAP S/4HANA business context, and puts the commercial decision directly in front of the Business Owner before Finance processes payment."*
 
 ---
 

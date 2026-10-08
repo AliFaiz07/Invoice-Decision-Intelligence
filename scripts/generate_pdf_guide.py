@@ -9,7 +9,7 @@ def main():
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>SAP Invoice Decision Intelligence — Integration & Demo Guide</title>
+  <title>Invoice Decision Intelligence — Integration & Demo Guide</title>
   <style>
     @page {
       size: A4;
@@ -337,7 +337,7 @@ def main():
         <span class="doc-pill">Enterprise Clean Core Reference Architecture</span>
       </div>
       
-      <h1 class="cover-title">SAP Invoice Decision Intelligence</h1>
+      <h1 class="cover-title">Invoice Decision Intelligence</h1>
       <div class="cover-subtitle">
         End-to-End System Integration Architecture, Data Flow Verification, and Complete Demo Runbook Guide
       </div>
@@ -390,7 +390,7 @@ def main():
   <!-- SECTION 1: EXECUTIVE OVERVIEW -->
   <h2>1. Executive Overview & Implementation Status</h2>
   <p>
-    SAP Invoice Decision Intelligence is an enterprise decision orchestration layer designed to sit between multi-channel invoice intake and SAP S/4HANA. It eliminates manual cross-referencing by bringing Purchase Orders (POs), Goods Receipts (GRs), Quality Management (QM) inspection results, and statutory tax reconciliation into a single explainable decision workflow.
+    Invoice Decision Intelligence is an enterprise decision orchestration layer designed to sit between multi-channel invoice intake and SAP S/4HANA. It eliminates manual cross-referencing by bringing Purchase Orders (POs), Goods Receipts (GRs), Quality Management (QM) inspection results, and statutory tax reconciliation into a single explainable decision workflow.
   </p>
 
   <table>
@@ -475,14 +475,14 @@ def main():
   <pre>cmd.exe /c "npm run start"</pre>
   <p>The console will output the startup banner:</p>
   <pre>=================================================================
-  SAP INVOICE DECISION INTELLIGENCE — RUNNING
+  INVOICE DECISION INTELLIGENCE — RUNNING
   URL: http://localhost:3000
   Target Architecture: SAP BTP & SAP S/4HANA (Clean Core)
   Mode: SAP DEMO MODE (ON)
 =================================================================</pre>
 
   <p><strong>Step 6: Open Browser</strong></p>
-  <p>Navigate to <code>http://localhost:3000</code>. The SAP Invoice Decision Intelligence Product Landing Page will render.</p>
+  <p>Navigate to <code>http://localhost:3000</code>. The Invoice Decision Intelligence Product Landing Page will render.</p>
 
   <!-- SECTION 3: PRE-DEMO CHECKLIST -->
   <h2>3. First 5 Minutes Pre-Demo Checklist</h2>
@@ -711,7 +711,7 @@ Server Process Restart -> File re-read -> State PRESERVED across restarts</pre>
     </div>
     <div class="script-sub"><strong>Action:</strong> Open <code>http://localhost:3000</code>. Scroll down past Hero, Intake Gateways, and Validation Pipeline.</div>
     <div class="spoken-box">
-      "In enterprise environments running SAP, vendor invoices enter through three disconnected channels: paper bills at factory gates, PDF attachments in AP mailboxes, and statutory electronic invoices. Accounts Payable clerks spend hours manually hunting down POs, checking goods receipts, and chasing department managers over email. SAP Invoice Decision Intelligence unifies intake on SAP BTP and cross-checks documents against SAP business context before Finance touches them."
+      "In enterprise environments running SAP, vendor invoices enter through three disconnected channels: paper bills at factory gates, PDF attachments in AP mailboxes, and statutory electronic invoices. Accounts Payable clerks spend hours manually hunting down POs, checking goods receipts, and chasing department managers over email. Invoice Decision Intelligence unifies intake on SAP BTP and cross-checks documents against SAP business context before Finance touches them."
     </div>
   </div>
 
@@ -783,7 +783,7 @@ Server Process Restart -> File re-read -> State PRESERVED across restarts</pre>
   </div>
 
   <div class="cover-footer" style="margin-top: 40px;">
-    <div>SAP Invoice Decision Intelligence · End-to-End Integration & Demo Runbook Guide</div>
+    <div>Invoice Decision Intelligence · End-to-End Integration & Demo Runbook Guide</div>
     <div>C:\\projects\\SAP Invoice Decision Intelligence</div>
   </div>
 

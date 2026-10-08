@@ -1,6 +1,6 @@
-# SAP Invoice Decision Intelligence — Product Vision
+# Invoice Decision Intelligence — Product Vision
 **Document ID:** PROD-VISION-001  
-**Product:** SAP Invoice Decision Intelligence  
+**Product:** Invoice Decision Intelligence  
 **Target:** SAP BTP & SAP S/4HANA (Clean Core)  
 **Status:** Canonical Enterprise Baseline  
 
@@ -10,7 +10,7 @@
 
 Traditional invoice processing systems operate as automated OCR pipelines: they ingest a PDF, extract key-value pairs (Invoice Number, Date, Total Amount), and blindly dump them into an approval queue or attempt to push them directly into ERP tables. When exceptions occur—such as price discrepancies, partial deliveries, or unverified services—these systems stall, creating false-positive backlogs that overwhelm Accounts Payable (AP) and Finance teams.
 
-**SAP Invoice Decision Intelligence** is an enterprise cognitive buffer built for **SAP Business Technology Platform (SAP BTP)**. It transforms invoice intake from mechanical data capture into **contextual decision intelligence**:
+**Invoice Decision Intelligence** is an enterprise cognitive buffer built for **SAP Business Technology Platform (SAP BTP)**. It transforms invoice intake from mechanical data capture into **contextual decision intelligence**:
 - It understands the **full SAP procurement context** (`Supplier` → `Purchase Order` → `Goods Receipt` → `Quality Inspection` → `Invoice` → `Business Owner` → `Finance`).
 - It distinguishes immutable **FACTS** (recorded in SAP S/4HANA transactional tables) from **SYSTEM RECOMMENDATIONS** (heuristics and machine intelligence).
 - It eliminates "AI magic" and black-box scores in favor of transparent, explainable decisions backed by verifiable evidence.
@@ -22,7 +22,7 @@ Traditional invoice processing systems operate as automated OCR pipelines: they 
 
 ```
 +---------------------------------------------------------------------------------------------------+
-|                                  SAP INVOICE DECISION INTELLIGENCE                                |
+|                                     INVOICE DECISION INTELLIGENCE                                 |
 +---------------------------------+---------------------------------+-------------------------------+
 |         EVIDENCE-FIRST          |          SAP CONTEXTUAL         |      ACTIONABLE & RESTRAINED  |
 | Every recommendation is backed  | Invoices are evaluated within   | Clean, dense SAP Fiori design |

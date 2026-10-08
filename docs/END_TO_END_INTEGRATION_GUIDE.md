@@ -1,7 +1,7 @@
-# SAP Invoice Decision Intelligence — End-to-End Integration & Demo Guide
+# Invoice Decision Intelligence — End-to-End Integration & Demo Guide
 
 **Document Classification:** Technical Architecture & Solution Guide  
-**Project:** SAP Invoice Decision Intelligence  
+**Project:** Invoice Decision Intelligence  
 **Runtime Platform:** Node.js Runtime (Express SPA) · Target Architecture: SAP BTP & SAP S/4HANA  
 **Release / Version:** Build v2.4 (Clean Core Architecture Reference)  
 **Document Author:** Solution Architecture & Integration Engineering  
@@ -10,7 +10,7 @@
 
 ## 1. Executive Overview
 
-This guide explains how **SAP Invoice Decision Intelligence** operates today, how data flows end-to-end through every channel and service, how each component is implemented, and how to operate and explain a flawless live demonstration.
+This guide explains how **Invoice Decision Intelligence** operates today, how data flows end-to-end through every channel and service, how each component is implemented, and how to operate and explain a flawless live demonstration.
 
 ### Critical Implementation Realities at a Glance
 
@@ -39,7 +39,7 @@ In large enterprises running SAP, vendor invoices arrive through multiple disorg
 Today, Accounts Payable (AP) clerks must manually cross-check these invoices against Purchase Orders (POs) and warehouse Goods Receipts (GRs), track down department managers (Business Owners) for service confirmations, check GST compliance, and manually key entries into SAP transaction `MIRO`. When discrepancies occur (e.g., price differences, damaged goods, or missing deliveries), invoices sit unresolved in email threads, causing late-payment penalties and strained supplier relationships.
 
 ### Why This System Exists
-SAP Invoice Decision Intelligence sits **between invoice arrival and SAP S/4HANA**. It acts as an intelligent decision hub that:
+Invoice Decision Intelligence sits **between invoice arrival and SAP S/4HANA**. It acts as an intelligent decision hub that:
 - Ingests invoices from all three intake channels into a single standardized format.
 - Automatically compares the invoice against SAP business context (Vendor, Purchase Order, Goods Receipt, Quality Inspection).
 - Identifies discrepancies (over-deliveries, price hikes, damaged items, duplicate billing).
@@ -139,7 +139,7 @@ npm run dev
 **Expected Terminal Output:**
 ```text
 =================================================================
-  SAP INVOICE DECISION INTELLIGENCE — RUNNING
+  INVOICE DECISION INTELLIGENCE — RUNNING
   URL: http://localhost:3000
   Target Architecture: SAP BTP & SAP S/4HANA (Clean Core)
   Mode: SAP DEMO MODE (ON)
@@ -151,7 +151,7 @@ Open Google Chrome, Microsoft Edge, or Firefox and navigate to:
 ```text
 http://localhost:3000
 ```
-**Expected Result:** The SAP Invoice Decision Intelligence Product Landing Page appears.
+**Expected Result:** The Invoice Decision Intelligence Product Landing Page appears.
 
 ---
 
@@ -163,7 +163,7 @@ Complete this checklist prior to presenting to clients or leadership:
 - [ ] **Build Clean:** Ran `npm run build` with zero TypeScript compilation errors.
 - [ ] **Test Suite Green:** Ran `cmd.exe /c "npm run test:ts"` — verified **59 passed, 0 failed**.
 - [ ] **Port 3000 Available:** No competing application occupying port 3000.
-- [ ] **Server Active:** Terminal shows `SAP INVOICE DECISION INTELLIGENCE — RUNNING`.
+- [ ] **Server Active:** Terminal shows `INVOICE DECISION INTELLIGENCE — RUNNING`.
 - [ ] **Browser URL:** Loaded `http://localhost:3000` — landing page renders crisply.
 - [ ] **Login Verification:** Clicked **Sign In** -> Clicked **Continue as Aarav Mehta** -> Entered application cockpit.
 - [ ] **10 Invoices Loaded:** Navigated to **Invoice Inbox** -> confirmed all 10 scenario records are listed.
@@ -203,7 +203,7 @@ Enterprise Application Cockpit (http://localhost:3000/app)
    - Clicking **Continue as Aarav Mehta** stores the mock user profile in browser `sessionStorage` (`sap_demo_auth`) and redirects to `/app`.
 
 3. **Application Shell (`/app`)**:
-   - Top header displays the SAP logo, S/4HANA Clean Core environment pill, global search, AI Engine active pulse indicator, Inbound Portals button, Reset Demo button, user badge (`AM`), and **Sign Out** button.
+   - Top header displays the S/4HANA Clean Core environment pill, global search, AI Engine active pulse indicator, Inbound Portals button, Reset Demo button, user badge (`AM`), and **Sign Out** button.
    - Clicking **Sign Out** clears session storage and returns the user to `/login`.
 
 ---
@@ -642,7 +642,7 @@ The best demonstration follows a business requisitioner approving an urgent stat
 
 > *"In every enterprise running SAP, vendor invoices arrive chaotically through paper scans, AP inboxes, and government e-invoice portals. Accounts Payable is forced to spend days manually cross-referencing Purchase Orders, checking warehouse receipts, and chasing department managers over email to approve charges.*
 >
-> *SAP Invoice Decision Intelligence solves this by creating a unified decision layer on SAP BTP. It normalizes all three intake channels into a single canonical record and automatically evaluates three-way matching, SAP QM inspection results, and GST tax credit rules.*
+> *Invoice Decision Intelligence solves this by creating a unified decision layer on SAP BTP. It normalizes all three intake channels into a single canonical record and automatically evaluates three-way matching, SAP QM inspection results, and GST tax credit rules.*
 >
 > *Before Finance touches the invoice, the platform routes commercial questions directly to the responsible Business Owner with clear evidence and explainable confidence scores. Clean invoices post straight into SAP S/4HANA via automated MIRO settlement, while exceptions are safely parked with audit-traceable hold reasons."*
 

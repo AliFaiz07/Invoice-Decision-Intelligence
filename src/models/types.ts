@@ -1,5 +1,5 @@
 /**
- * SAP Invoice Decision Intelligence — Canonical Data Models & SAP Domain Types
+ * Invoice Decision Intelligence — Canonical Data Models & SAP Domain Types
  * Conforms to SAP S/4HANA OData V2/V4 core entity structures
  */
 

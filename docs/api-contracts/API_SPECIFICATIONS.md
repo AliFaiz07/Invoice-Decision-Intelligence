@@ -1,4 +1,4 @@
-# SAP Invoice Decision Intelligence — API Contracts & Payload Specifications
+# Invoice Decision Intelligence — API Contracts & Payload Specifications
 **Document ID:** SPEC-S4H-BTP-API-005  
 **Version:** 1.0.0  
 

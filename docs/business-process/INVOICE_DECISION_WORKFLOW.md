@@ -1,4 +1,4 @@
-# SAP Invoice Decision Intelligence — Business Process Workflow
+# Invoice Decision Intelligence — Business Process Workflow
 **Document ID:** PROC-S4H-BTP-INV-002  
 **Process Area:** Sourcing & Procurement / Logistics Invoice Verification (LIV)  
 **Standard SAP Alignment:** S/4HANA Best Practice Scope Items 2TX (Invoice Processing with OCR), 1J1 (Supplier Invoice Verification), J60 (Procurement of Direct Materials)  
