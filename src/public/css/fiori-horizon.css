@@ -3278,9 +3278,9 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
-  color: #FFFFFF;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
 }
 
 .joule-fab-label {

@@ -27,7 +27,7 @@ const ICONS = {
   lock: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`,
   creditCard: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>`,
   refresh: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>`,
-  jouleAsset: `<span class="joule-asset-slot" data-asset="official-sap-joule" title="Official SAP Joule Asset Slot" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9" fill-opacity="0.22" stroke="currentColor" stroke-width="1.8"/><text x="12" y="16.5" font-size="13" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif">J</text></svg></span>`,
+  jouleAsset: `<span class="joule-asset-slot" data-asset="official-sap-joule" title="Official SAP Joule Mark" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 1.5L21.5 7V17L12 22.5L2.5 17V7L12 1.5Z" fill="#0070F2" stroke="#0070F2" stroke-width="1.2" stroke-linejoin="round"/><path d="M12 3.8L19.8 8.3V15.7L12 20.2L4.2 15.7V8.3L12 3.8Z" fill="#FFFFFF"/><path d="M12 5.8C12 9.4 14.6 12 18.2 12C14.6 12 12 14.6 12 18.2C12 14.6 9.4 12 5.8 12C9.4 12 12 9.4 12 5.8Z" fill="#0070F2"/></svg></span>`,
 };
 
 /**
@@ -5489,9 +5489,7 @@ Tel: +91 22 6790 0000 | Email: ${meta.emailSender || 'billing@vendor.com'}
         msgBody.innerHTML = `
           <div class="joule-chat-bubble-bot">
             <div class="joule-bot-header">
-              <span class="joule-asset-slot" data-asset="official-sap-joule" style="width:14px; height:14px; display:inline-flex;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9" fill-opacity="0.22" stroke="currentColor" stroke-width="1.8"/><text x="12" y="16.5" font-size="13" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif">J</text></svg>
-              </span>
+              <span class="joule-asset-slot" data-asset="official-sap-joule" style="width:16px; height:16px; display:inline-flex;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 1.5L21.5 7V17L12 22.5L2.5 17V7L12 1.5Z" fill="#0070F2" stroke="#0070F2" stroke-width="1.2" stroke-linejoin="round"/><path d="M12 3.8L19.8 8.3V15.7L12 20.2L4.2 15.7V8.3L12 3.8Z" fill="#FFFFFF"/><path d="M12 5.8C12 9.4 14.6 12 18.2 12C14.6 12 12 14.6 12 18.2C12 14.6 9.4 12 5.8 12C9.4 12 12 9.4 12 5.8Z" fill="#0070F2"/></svg></span>
               <span>Joule Contextual Assistant</span>
             </div>
             <div>${greetingText}</div>
@@ -5532,9 +5530,7 @@ Tel: +91 22 6790 0000 | Email: ${meta.emailSender || 'billing@vendor.com'}
     botBubble.className = 'joule-chat-bubble-bot';
     botBubble.innerHTML = `
       <div class="joule-bot-header">
-        <span class="joule-asset-slot" data-asset="official-sap-joule" style="width:14px; height:14px; display:inline-flex;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9" fill-opacity="0.22" stroke="currentColor" stroke-width="1.8"/><text x="12" y="16.5" font-size="13" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif">J</text></svg>
-        </span>
+        <span class="joule-asset-slot" data-asset="official-sap-joule" style="width:16px; height:16px; display:inline-flex;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 1.5L21.5 7V17L12 22.5L2.5 17V7L12 1.5Z" fill="#0070F2" stroke="#0070F2" stroke-width="1.2" stroke-linejoin="round"/><path d="M12 3.8L19.8 8.3V15.7L12 20.2L4.2 15.7V8.3L12 3.8Z" fill="#FFFFFF"/><path d="M12 5.8C12 9.4 14.6 12 18.2 12C14.6 12 12 14.6 12 18.2C12 14.6 9.4 12 5.8 12C9.4 12 12 9.4 12 5.8Z" fill="#0070F2"/></svg></span>
         <span>Joule &bull; ${ctx.cfg.title}</span>
       </div>
       <div>${answerHtml}</div>
