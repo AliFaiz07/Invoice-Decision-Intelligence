@@ -27,6 +27,7 @@ const ICONS = {
   lock: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`,
   creditCard: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>`,
   refresh: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>`,
+  jouleAsset: `<span class="joule-asset-slot" data-asset="official-sap-joule" title="Official SAP Joule Asset Slot" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9" fill-opacity="0.22" stroke="currentColor" stroke-width="1.8"/><text x="12" y="16.5" font-size="13" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif">J</text></svg></span>`,
 };
 
 /**
@@ -60,6 +61,1198 @@ async function safeFetchJson(url, options = {}) {
   return response.json();
 }
 
+
+// ============================================================================
+// CENTRALIZED GLOBAL SAP JOULE CONTEXTUAL CONFIGURATION (JOULE_CONTEXTS)
+// ============================================================================
+const JOULE_CONTEXTS = {
+  // 1. OVERVIEW PAGE
+  overview: {
+    id: 'overview',
+    title: 'Overview',
+    description: 'Executive overview & architecture of Invoice Decision Intelligence',
+    getContextLabel: () => 'Context: Overview',
+    getQuestions: () => [
+      'What does this application do?',
+      'How does the invoice workflow work?',
+      'What are the three invoice intake channels?',
+      'How does AI help in invoice decisions?',
+      'What SAP business context is used?',
+      'Explain the end-to-end invoice process.',
+      'What happens after invoice ingestion?',
+      'What happens before payment?',
+      'What is the role of business validation?',
+      'What is the role of PO and GR matching?',
+    ],
+    resolver: (rawQuery, app) => {
+      const q = rawQuery.toLowerCase();
+      if (q.includes('what does this application do') || q.includes('what this app does') || q.includes('overview') || q.includes('purpose')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">INVOICE DECISION INTELLIGENCE</div>
+            <div style="font-size:11px; line-height:1.45; color:var(--text-secondary);">
+              An enterprise Decision Intelligence platform built for SAP S/4HANA environments. It ingests supplier invoices from multiple channels, extracts commercial line items, runs automated 3-way Logistic Invoice Verification (LIV) against SAP Purchase Orders (ME23N) and Goods Receipts (MSEG), validates statutory GST ITC compliance (GSTR-2B), and recommends automated posting (MIRO) or parking (MIR7) with calibrated confidence scoring.
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('workflow') || q.includes('how does the invoice workflow work')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">ENTERPRISE WORKFLOW STAGES</div>
+            <div style="display:flex; flex-direction:column; gap:4px; font-size:11px;">
+              <div>1. <strong>Intake:</strong> Scanned PDF, AP Mailbox, or Government E-Invoice IRP.</div>
+              <div>2. <strong>Extraction:</strong> Machine extraction of header, line items, and tax amounts.</div>
+              <div>3. <strong>3-Way LIV Matching:</strong> Verification against SAP PO & Goods Receipt (Tolerance Keys PP, DQ, BD).</div>
+              <div>4. <strong>Business Validation:</strong> Contextual requisitioner/owner approval (Aarav Mehta).</div>
+              <div>5. <strong>ERP Posting:</strong> Automated or human-approved S/4HANA financial posting (MIRO/BELNR).</div>
+              <div>6. <strong>Disbursement & Settlement:</strong> SAP FI-AP payment run (F110) & clearing (BSAK).</div>
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('intake') || q.includes('channels') || q.includes('three invoice intake')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">THREE INVOICE INTAKE CHANNELS</div>
+            <div style="display:flex; flex-direction:column; gap:4px; font-size:11px;">
+              <div>1. <strong>Physical Gate Scanner:</strong> High-speed gate camera & OCR scanner capturing paper bills at warehouse receipt.</div>
+              <div>2. <strong>Vendor AP Mailbox:</strong> RFC 822 email parser monitoring <code>ap-invoices@company.com</code> for PDF attachments.</div>
+              <div>3. <strong>Government E-Invoice IRP:</strong> Statutory GSTN portal integration extracting digitally signed JSON with 64-character IRN hashes.</div>
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('ai help') || q.includes('ai decision') || q.includes('heuristics')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">AI DECISION ENGINE ARCHITECTURE</div>
+            <div style="font-size:11px; line-height:1.45; color:var(--text-secondary);">
+              The decision engine uses 14 deterministic heuristics evaluating commercial tolerances, SAP QM quality inspection lots, duplicate fingerprint hashes, and GSTR-2B Input Tax Credit eligibility. It generates an audit-traceable recommendation (<code>AUTO_PROCEED</code>, <code>MANUAL_REVIEW</code>, <code>HOLD</code>, or <code>REJECT</code>) along with a calibrated confidence score (up to 98%).
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('sap business context') || q.includes('context is used') || q.includes('tables')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">SAP S/4HANA BUSINESS CONTEXT</div>
+            <div style="font-size:11px; line-height:1.45;">
+              <div>&bull; <strong>Purchasing (MM-PUR):</strong> PO Headers (<code>EKKO</code>) & Items (<code>EKPO</code>)</div>
+              <div>&bull; <strong>Inventory (MM-IM):</strong> Material Documents & Goods Receipts (<code>MSEG</code>)</div>
+              <div>&bull; <strong>Quality (QM):</strong> Inspection Lots & Defect Records (<code>QALS</code>)</div>
+              <div>&bull; <strong>Financials (FI-AP):</strong> Accounting Docs (<code>BKPF</code>/<code>BSEG</code>) & Cleared Items (<code>BSAK</code>)</div>
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('end-to-end') || q.includes('process')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">END-TO-END INVOICE PROCESS</div>
+            <div style="font-size:11px; color:var(--text-secondary); line-height:1.45;">
+              Supplier issues invoice &rarr; Captured via physical OCR, email, or IRP &rarr; 3-Way LIV matching & AI evaluation &rarr; If exceptions, routed to Business Owner (Aarav Mehta) for approval &rarr; Posted to S/4HANA General Ledger &rarr; Executed via F110 Payment Run &rarr; Fully settled via BSAK clearing.
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('after invoice ingestion') || q.includes('after ingestion')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">POST-INGESTION PIPELINE</div>
+            <div style="font-size:11px; line-height:1.45; color:var(--text-secondary);">
+              Immediately after ingestion, metadata is normalized and hashed. The system queries SAP S/4HANA for corresponding PO and Goods Receipt records, performs 3-way matching, calculates tolerance variances, checks GSTR-2B returns, and assigns the item to the Decision Center queue with an AI recommendation.
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('before payment') || q.includes('prior to payment')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">PREREQUISITES BEFORE PAYMENT</div>
+            <div style="font-size:11px; line-height:1.45; color:var(--text-secondary);">
+              1) 3-Way LIV tolerances must be satisfied (or variance approved by Owner).<br>
+              2) Invoice must be formally posted to S/4HANA (generating BELNR accounting document).<br>
+              3) Payment Block Key R must be cleared.<br>
+              4) Treasury automated payment program (F110) must execute disbursement.
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('role of business validation') || q.includes('business validation')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">ROLE OF BUSINESS VALIDATION</div>
+            <div style="font-size:11px; line-height:1.45; color:var(--text-secondary);">
+              Provides human-in-the-loop governance for invoices with acceptable commercial variances, Non-PO service deliveries, or urgent statutory acceptance requirements. The assigned business owner (Aarav Mehta) verifies deliverables before the invoice can be posted to the financial ledger.
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('role of po') || q.includes('gr matching') || q.includes('matching')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">ROLE OF PO & GR MATCHING</div>
+            <div style="font-size:11px; line-height:1.45; color:var(--text-secondary);">
+              3-Way Logistic Invoice Verification (LIV) is the primary internal financial control in SAP. It prevents overbilling by verifying that billed unit prices match PO contracted rates and billed quantities do not exceed warehouse-received Goods Receipt quantities.
+            </div>
+          </div>
+        `;
+      }
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">OVERVIEW CONTEXT</div>
+          <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;">
+            Invoice Decision Intelligence brings real-time AI explainability to SAP LIV. Click any suggested question below or ask about intake channels, 3-way matching, AI decisioning, or SAP S/4HANA posting.
+          </div>
+        </div>
+      `;
+    }
+  },
+
+  // 2. COMMAND CENTER
+  commandCenter: {
+    id: 'commandCenter',
+    title: 'Command Center',
+    description: 'Operational metrics and real-time workload overview',
+    getContextLabel: () => 'Context: Command Center',
+    getQuestions: () => [
+      'What requires attention right now?',
+      'How many invoices need business validation?',
+      'What are the current exceptions?',
+      'Which invoices are blocked?',
+      'What is ready for finance processing?',
+      'What are the highest-priority items?',
+      'What is the current processing status?',
+      'Explain today\'s invoice workload.',
+    ],
+    resolver: (rawQuery, app) => {
+      const q = rawQuery.toLowerCase();
+      const total = app.invoices.length;
+      const pendingVal = app.invoices.filter(
+        (i) => i.invoice.processingStatus === 'PENDING_BUSINESS_VALIDATION' || i.aiDecision.recommendation === 'BUSINESS_VALIDATION_REQUIRED'
+      );
+      const exceptions = app.invoices.filter((i) =>
+        ['HOLD', 'MANUAL_REVIEW', 'REJECT'].includes(i.aiDecision.recommendation) ||
+        (i.aiDecision.identifiedExceptions && i.aiDecision.identifiedExceptions.length > 0) ||
+        i.invoice.isDuplicateSuspect ||
+        i.slaRecord?.status === 'APPROACHING_BREACH'
+      );
+      const blocked = app.invoices.filter((i) =>
+        ['HOLD', 'REJECT'].includes(i.aiDecision.recommendation) || i.invoice.paymentStatus === 'BLOCKED'
+      );
+      const readyForFinance = app.invoices.filter(
+        (i) => i.invoice.processingStatus === 'POSTED_TO_SAP' || i.aiDecision.recommendation === 'AUTO_PROCEED'
+      );
+
+      if (q.includes('attention right now') || q.includes('requires attention') || q.includes('attention')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">ITEMS REQUIRING ATTENTION</div>
+            <div style="font-size:11px; line-height:1.45;">
+              <div>&bull; <strong>${pendingVal.length} Invoices</strong> require Business Owner sign-off (${pendingVal.map(i => i.invoice.invoiceId).slice(0, 3).join(', ')}${pendingVal.length > 3 ? '...' : ''}).</div>
+              <div style="margin-top:3px;">&bull; <strong>${exceptions.length} Invoices</strong> flagged with operational or statutory exceptions.</div>
+              <div style="margin-top:3px;">&bull; <strong>1 Invoice</strong> approaching statutory 48h SLA breach (<code>INV-2026-00008</code>).</div>
+            </div>
+            <div style="margin-top:6px; font-size:11px; color:var(--text-muted);">
+              Recommended: Review high-priority exceptions in Decision Center or validate pending requests in Business Validation.
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('need business validation') || q.includes('how many invoices need business validation')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">BUSINESS VALIDATION WORKLOAD</div>
+            <div style="font-size:11px; margin-bottom:4px;">
+              Currently <strong>${pendingVal.length} of ${total} invoices</strong> require commercial owner sign-off:
+            </div>
+            <div style="display:flex; flex-direction:column; gap:3px; font-size:11px;">
+              ${pendingVal.map(i => `<div>&bull; <code>${i.invoice.invoiceId}</code> &bull; ${i.invoice.supplierName} &bull; <strong>₹${(i.invoice.totalGrossAmount || 0).toLocaleString('en-IN')}</strong></div>`).join('') || '<div>✓ Zero invoices currently pending validation.</div>'}
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('current exceptions') || q.includes('what are the current exceptions')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">ACTIVE EXCEPTIONS (${exceptions.length})</div>
+            <div style="font-size:11px; line-height:1.45;">
+              <div>&bull; <strong>Price Tolerance:</strong> INV-2026-00005 (+12.5% unit price variance)</div>
+              <div>&bull; <strong>Quantity Over-Delivery:</strong> INV-2026-00002 (+30% billed vs GR)</div>
+              <div>&bull; <strong>Quality Defect:</strong> INV-2026-00006 (SAP QM inspection lot rejected)</div>
+              <div>&bull; <strong>Duplicate Suspect:</strong> INV-2026-00007 (Repeated invoice fingerprint)</div>
+              <div>&bull; <strong>Vendor Mismatch:</strong> INV-2026-00004 (Vendor does not match PO)</div>
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('blocked') || q.includes('which invoices are blocked')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">BLOCKED INVOICES (${blocked.length})</div>
+            <div style="font-size:11px; margin-bottom:4px;">Invoices with SAP Payment Block Key R or held status:</div>
+            <div style="display:flex; flex-direction:column; gap:3px; font-size:11px;">
+              ${blocked.map(i => `<div>&bull; <code>${i.invoice.invoiceId}</code> (${i.invoice.supplierName}): <strong>${i.aiDecision.recommendation}</strong> &bull; ${i.aiDecision.explanation.whyRecommended[0] || 'Exception hold'}</div>`).slice(0, 4).join('')}
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('ready for finance') || q.includes('ready for finance processing')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">READY FOR FINANCE PROCESSING</div>
+            <div style="font-size:11px; margin-bottom:4px;">
+              <strong>${readyForFinance.length} invoices</strong> meet straight-through LIV tolerances or are already posted:
+            </div>
+            <div style="display:flex; flex-direction:column; gap:3px; font-size:11px;">
+              ${readyForFinance.map(i => `<div>&bull; <code>${i.invoice.invoiceId}</code> &bull; ${i.invoice.supplierName} &bull; <strong>₹${(i.invoice.totalGrossAmount || 0).toLocaleString('en-IN')}</strong> (${i.invoice.processingStatus})</div>`).slice(0, 4).join('')}
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('highest-priority') || q.includes('priority')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">HIGHEST-PRIORITY ACTIONS</div>
+            <div style="display:flex; flex-direction:column; gap:4px; font-size:11px;">
+              <div>1. <strong>INV-2026-00008:</strong> Statutory e-invoice approaching 48h SLA deadline. Requires immediate sign-off.</div>
+              <div>2. <strong>INV-2026-00007:</strong> Potential duplicate billing from AWS Cloud. Verify previous posting.</div>
+              <div>3. <strong>INV-2026-00006:</strong> Defective filters rejected in SAP QM. Initiate vendor credit request.</div>
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('processing status') || q.includes('current processing status')) {
+        const postedCount = app.invoices.filter(i => i.invoice.postingStatus === 'POSTED').length;
+        const paidCount = app.invoices.filter(i => i.invoice.paymentStatus === 'PAID').length;
+        const clearedCount = app.invoices.filter(i => i.invoice.clearingStatus === 'CLEARED').length;
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">CURRENT PROCESSING PIPELINE STATUS</div>
+            <div style="display:grid; grid-template-columns:120px 1fr; gap:3px; font-size:11px;">
+              <span><strong>Total Invoices:</strong></span><span>${total} loaded</span>
+              <span><strong>Posted to S/4HANA:</strong></span><span>${postedCount} documents</span>
+              <span><strong>Disbursements:</strong></span><span>${paidCount} executed</span>
+              <span><strong>Settled & Cleared:</strong></span><span>${clearedCount} finalized</span>
+            </div>
+          </div>
+        `;
+      }
+      const totalGross = app.invoices.reduce((sum, i) => sum + (i.invoice.totalGrossAmount || 0), 0);
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">TODAY'S OPERATIONAL WORKLOAD</div>
+          <div style="display:grid; grid-template-columns:110px 1fr; gap:3px; font-size:11px;">
+            <span><strong>Total Volume:</strong></span><span>${total} inbound invoices</span>
+            <span><strong>Gross Liability:</strong></span><span>₹${totalGross.toLocaleString('en-IN')}</span>
+            <span><strong>Pending Review:</strong></span><span>${pendingVal.length + exceptions.length} invoices</span>
+            <span><strong>Ready/Posted:</strong></span><span>${readyForFinance.length} invoices</span>
+          </div>
+        </div>
+      `;
+    }
+  },
+
+  // 3. INVOICE INBOX
+  invoiceInbox: {
+    id: 'invoiceInbox',
+    title: 'Invoice Inbox',
+    description: 'Aggregated repository across all inbound intake streams',
+    getContextLabel: () => 'Context: Invoice Inbox',
+    getQuestions: () => [
+      'How many invoices are currently in the inbox?',
+      'Which invoices need attention?',
+      'Show invoices with exceptions.',
+      'Show invoices on hold.',
+      'Show invoices awaiting validation.',
+      'Show high-value invoices.',
+      'Which invoices are ready for processing?',
+      'What are the common issues in the inbox?',
+      'Summarize the current invoice workload.',
+    ],
+    resolver: (rawQuery, app) => {
+      const q = rawQuery.toLowerCase();
+      const total = app.invoices.length;
+      const physicalCount = app.invoices.filter(i => i.invoice.sourceChannel === 'PHYSICAL_SCAN').length;
+      const emailCount = app.invoices.filter(i => i.invoice.sourceChannel === 'AP_MAILBOX').length;
+      const einvoiceCount = app.invoices.filter(i => i.invoice.sourceChannel === 'GOVERNMENT_IRP').length;
+
+      if (q.includes('how many') || q.includes('currently in the inbox') || q.includes('total')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">INBOX VOLUME BREAKDOWN</div>
+            <div style="font-size:11px; margin-bottom:4px;">There are currently <strong>${total} supplier invoices</strong> indexed in the inbox:</div>
+            <div style="display:flex; flex-direction:column; gap:2px; font-size:11px;">
+              <div>&bull; <strong>Physical Gate Scanner:</strong> ${physicalCount} documents</div>
+              <div>&bull; <strong>Vendor AP Mailbox:</strong> ${emailCount} documents</div>
+              <div>&bull; <strong>Government E-Invoice IRP:</strong> ${einvoiceCount} documents</div>
+            </div>
+            <div style="margin-top:6px; font-size:11px; color:var(--text-muted);">
+              Tip: Click any invoice row in the table to focus Joule context on that specific invoice.
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('need attention') || q.includes('which invoices need attention')) {
+        const needsAttn = app.invoices.filter(i => ['HOLD', 'MANUAL_REVIEW', 'BUSINESS_VALIDATION_REQUIRED'].includes(i.aiDecision.recommendation));
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">INVOICES NEEDING ATTENTION (${needsAttn.length})</div>
+            <div style="display:flex; flex-direction:column; gap:3px; font-size:11px;">
+              ${needsAttn.map(i => `<div>&bull; <code>${i.invoice.invoiceId}</code> (${i.invoice.supplierName}): <strong>${i.aiDecision.recommendation}</strong> &bull; ₹${(i.invoice.totalGrossAmount || 0).toLocaleString('en-IN')}</div>`).join('')}
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('with exceptions') || q.includes('show invoices with exceptions')) {
+        const excInvs = app.invoices.filter(i => i.aiDecision.identifiedExceptions && i.aiDecision.identifiedExceptions.length > 0);
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">INVOICES WITH ACTIVE EXCEPTIONS</div>
+            <div style="display:flex; flex-direction:column; gap:3px; font-size:11px;">
+              ${excInvs.map(i => `<div>&bull; <code>${i.invoice.invoiceId}</code>: ${i.aiDecision.identifiedExceptions.join(', ')}</div>`).slice(0, 5).join('')}
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('on hold') || q.includes('show invoices on hold')) {
+        const holdInvs = app.invoices.filter(i => i.aiDecision.recommendation === 'HOLD');
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">INVOICES CURRENTLY ON HOLD (${holdInvs.length})</div>
+            <div style="display:flex; flex-direction:column; gap:3px; font-size:11px;">
+              ${holdInvs.map(i => `<div>&bull; <code>${i.invoice.invoiceId}</code> &bull; ${i.invoice.supplierName} &bull; ₹${(i.invoice.totalGrossAmount || 0).toLocaleString('en-IN')} (${i.aiDecision.explanation.whyRecommended[0] || 'Held'})</div>`).join('')}
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('awaiting validation') || q.includes('show invoices awaiting validation')) {
+        const valInvs = app.invoices.filter(i => i.invoice.processingStatus === 'PENDING_BUSINESS_VALIDATION' || i.aiDecision.recommendation === 'BUSINESS_VALIDATION_REQUIRED');
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">AWAITING OWNER VALIDATION (${valInvs.length})</div>
+            <div style="display:flex; flex-direction:column; gap:3px; font-size:11px;">
+              ${valInvs.map(i => `<div>&bull; <code>${i.invoice.invoiceId}</code> &bull; ${i.invoice.supplierName} &bull; <strong>₹${(i.invoice.totalGrossAmount || 0).toLocaleString('en-IN')}</strong></div>`).join('')}
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('high-value') || q.includes('high value')) {
+        const highVal = [...app.invoices].sort((a, b) => (b.invoice.totalGrossAmount || 0) - (a.invoice.totalGrossAmount || 0)).slice(0, 4);
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">HIGHEST VALUE INVOICES</div>
+            <div style="display:flex; flex-direction:column; gap:3px; font-size:11px;">
+              ${highVal.map((i, idx) => `<div>${idx + 1}. <code>${i.invoice.invoiceId}</code> &bull; ${i.invoice.supplierName} &bull; <strong>₹${(i.invoice.totalGrossAmount || 0).toLocaleString('en-IN')}</strong> (${i.aiDecision.recommendation})</div>`).join('')}
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('ready for processing') || q.includes('which invoices are ready')) {
+        const ready = app.invoices.filter(i => i.aiDecision.recommendation === 'AUTO_PROCEED' || i.invoice.processingStatus === 'POSTED_TO_SAP');
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">READY FOR STRAIGHT-THROUGH PROCESSING</div>
+            <div style="display:flex; flex-direction:column; gap:3px; font-size:11px;">
+              ${ready.map(i => `<div>&bull; <code>${i.invoice.invoiceId}</code> &bull; ${i.invoice.supplierName} &bull; <strong>₹${(i.invoice.totalGrossAmount || 0).toLocaleString('en-IN')}</strong></div>`).join('')}
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('common issues') || q.includes('issues')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">COMMON ISSUES DETECTED IN INBOX</div>
+            <div style="font-size:11px; line-height:1.45;">
+              <div>1. <strong>Unit Price Variance:</strong> Vendor invoiced above PO contract rate (e.g. TCS +12.5%).</div>
+              <div>2. <strong>Quantity Over-Delivery:</strong> Invoiced quantity exceeds physical Goods Receipt (e.g. Tata +30%).</div>
+              <div>3. <strong>Quality Defects:</strong> Plant QA rejection logged in SAP QM (e.g. Cummins).</div>
+              <div>4. <strong>Statutory GST Mismatch:</strong> Discrepancy between invoice and auto-drafted GSTR-2B.</div>
+            </div>
+          </div>
+        `;
+      }
+      const totalAmt = app.invoices.reduce((acc, i) => acc + (i.invoice.totalGrossAmount || 0), 0);
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">INBOX WORKLOAD SNAPSHOT</div>
+          <div style="font-size:11px; line-height:1.45;">
+            Inbox currently tracks <strong>${total} invoices</strong> totaling <strong>₹${totalAmt.toLocaleString('en-IN')}</strong>. Select an invoice row to inspect line item details with Joule.
+          </div>
+        </div>
+      `;
+    }
+  },
+
+  // 4. DECISION CENTER (QUEUE VIEW)
+  decisionCenter: {
+    id: 'decisionCenter',
+    title: 'Decision Center',
+    description: 'AI-evaluated decision queue and exception triage',
+    getContextLabel: () => 'Context: Decision Center',
+    getQuestions: () => [
+      'What decisions are pending?',
+      'Which invoices need business validation?',
+      'Which invoices can auto-proceed?',
+      'Which invoices have exceptions?',
+      'Show high-risk decisions.',
+      'Explain the current decision queue.',
+      'What should I review first?',
+    ],
+    resolver: (rawQuery, app) => {
+      const q = rawQuery.toLowerCase();
+      const autoProceed = app.invoices.filter(i => i.aiDecision.recommendation === 'AUTO_PROCEED');
+      const needVal = app.invoices.filter(i => i.aiDecision.recommendation === 'BUSINESS_VALIDATION_REQUIRED' || i.invoice.processingStatus === 'PENDING_BUSINESS_VALIDATION');
+      const manual = app.invoices.filter(i => i.aiDecision.recommendation === 'MANUAL_REVIEW');
+      const hold = app.invoices.filter(i => i.aiDecision.recommendation === 'HOLD');
+      const highRisk = app.invoices.filter(i => ['HIGH', 'CRITICAL'].includes(i.aiDecision.riskLevel));
+
+      if (q.includes('decisions are pending') || q.includes('pending')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">PENDING DECISION QUEUE BREAKDOWN</div>
+            <div style="display:grid; grid-template-columns:120px 1fr; gap:3px; font-size:11px;">
+              <span><strong>Auto-Proceed:</strong></span><span>${autoProceed.length} invoices (straight-through posting ready)</span>
+              <span><strong>Need Validation:</strong></span><span>${needVal.length} invoices (awaiting commercial owner)</span>
+              <span><strong>Manual Review:</strong></span><span>${manual.length} invoices (tolerance variances)</span>
+              <span><strong>Hold:</strong></span><span>${hold.length} invoices (critical blockers/duplicates)</span>
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('need business validation')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">VALIDATION REQUESTS IN QUEUE</div>
+            <div style="display:flex; flex-direction:column; gap:3px; font-size:11px;">
+              ${needVal.map(i => `<div>&bull; <code>${i.invoice.invoiceId}</code> &bull; ${i.invoice.supplierName} &bull; ₹${(i.invoice.totalGrossAmount || 0).toLocaleString('en-IN')}</div>`).join('') || '<div>None pending.</div>'}
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('auto-proceed') || q.includes('can auto-proceed')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">INVOICES CLEARED FOR AUTO-PROCEED</div>
+            <div style="display:flex; flex-direction:column; gap:3px; font-size:11px;">
+              ${autoProceed.map(i => `<div>&bull; <code>${i.invoice.invoiceId}</code> &bull; ${i.invoice.supplierName} &bull; ₹${(i.invoice.totalGrossAmount || 0).toLocaleString('en-IN')} (Confidence: ${i.aiDecision.confidenceScore}%)</div>`).join('')}
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('have exceptions') || q.includes('exceptions')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">EXCEPTIONS IN DECISION QUEUE</div>
+            <div style="font-size:11px; line-height:1.45;">
+              Currently <strong>${manual.length + hold.length} invoices</strong> require exception resolution before posting:
+              <div style="margin-top:4px;">
+                ${[...manual, ...hold].map(i => `<div>&bull; <code>${i.invoice.invoiceId}</code>: ${i.aiDecision.explanation.whyRecommended[0] || 'Exception'}</div>`).slice(0, 4).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('high-risk') || q.includes('high risk') || q.includes('risk')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">HIGH & CRITICAL RISK DECISIONS (${highRisk.length})</div>
+            <div style="display:flex; flex-direction:column; gap:3px; font-size:11px;">
+              ${highRisk.map(i => `<div>&bull; <code>${i.invoice.invoiceId}</code>: <strong>${i.aiDecision.riskLevel}</strong> &bull; ${i.aiDecision.explanation.whyRecommended[0]}</div>`).join('')}
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('explain') || q.includes('queue')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">DECISION QUEUE MECHANICS</div>
+            <div style="font-size:11px; line-height:1.45; color:var(--text-secondary);">
+              Every ingested invoice is scored against 14 SAP business heuristics. The queue ranks invoices by urgency and risk. You can click <strong>Inspect</strong> on any row to open full 3-way matching and line item evidence.
+            </div>
+          </div>
+        `;
+      }
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">RECOMMENDED QUEUE PRIORITY</div>
+          <div style="font-size:11px; line-height:1.45;">
+            1. <strong>Triage Statutory SLA:</strong> Inspect <code>INV-2026-00008</code> (approaching 48h limit).<br>
+            2. <strong>Resolve Duplicate Suspect:</strong> Inspect <code>INV-2026-00007</code>.<br>
+            3. <strong>Inspect Commercial Variances:</strong> Inspect <code>INV-2026-00002</code> and <code>INV-2026-00005</code>.<br>
+            4. <strong>Auto-Post Compliant Items:</strong> Post <code>INV-2026-00001</code>.
+          </div>
+        </div>
+      `;
+    }
+  },
+
+  // 5. INVOICE DETAIL (SPECIFIC INVOICE CONTEXT)
+  invoiceDetail: {
+    id: 'invoiceDetail',
+    title: 'Invoice Detail',
+    description: 'Specific invoice decision and 3-way matching workspace',
+    getContextLabel: (app, invoiceId) => {
+      const invId = invoiceId || app.selectedInvoiceId || 'INV-2026-00001';
+      return `Context: Invoice ${invId}`;
+    },
+    getQuestions: () => [
+      'Summarize this invoice',
+      'Why was this invoice flagged?',
+      'Why was this invoice approved?',
+      'Compare invoice with PO',
+      'Compare invoice with GR',
+      'Show quantity variance',
+      'Show price variance',
+      'What did AI recommend?',
+      'Why did AI recommend this?',
+      'Who validated this invoice?',
+      'What is the next action?',
+      'Has the invoice been parked?',
+      'Has it been posted?',
+      'Has payment happened?',
+      'Has clearing happened?',
+      'Show document reference chain',
+    ],
+    resolver: (rawQuery, app, ctx) => {
+      const targetId = ctx.invoiceId || app.selectedInvoiceId;
+      const item = app.invoices.find((i) => i.invoice.invoiceId === targetId) || app.invoices[0];
+      if (!item) return '<div>No invoice context loaded.</div>';
+      return app.resolveInvoiceDetailAnswer(rawQuery, item);
+    }
+  },
+
+  // 6. PO & 3-WAY MATCH
+  poMatch: {
+    id: 'poMatch',
+    title: 'PO & 3-Way Match',
+    description: 'Logistic Invoice Verification (LIV) matching engine',
+    getContextLabel: () => 'Context: PO & 3-Way Match',
+    getQuestions: () => [
+      'What is 3-way matching?',
+      'Which invoices have matching issues?',
+      'Which invoices have quantity variance?',
+      'Which invoices have price variance?',
+      'Which invoices have PO mismatch?',
+      'Which invoices have GR mismatch?',
+      'Show invoices with unmatched PO/GR.',
+      'Explain the matching logic.',
+      'What is the current match status?',
+    ],
+    resolver: (rawQuery, app) => {
+      const q = rawQuery.toLowerCase();
+      if (q.includes('what is 3-way matching') || q.includes('what is 3 way matching') || q.includes('3-way matching')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">SAP 3-WAY MATCHING (LIV)</div>
+            <div style="font-size:11px; line-height:1.45; color:var(--text-secondary);">
+              In SAP ERP/S/4HANA, 3-Way Logistic Invoice Verification compares three core documents:<br>
+              1. <strong>Purchase Order (ME23N):</strong> Contracted unit price and ordered quantity.<br>
+              2. <strong>Goods Receipt (MIGO / MSEG):</strong> Actually received and QA-accepted quantity.<br>
+              3. <strong>Supplier Invoice (MIRO):</strong> Billed quantity, rate, and tax.<br>
+              Payment is blocked if differences exceed SAP configured tolerance keys.
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('quantity variance') || q.includes('which invoices have quantity variance')) {
+        const qtyInvs = app.invoices.filter(i => i.reconciliation && i.reconciliation.quantityStatus !== 'EXACT_MATCH');
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">QUANTITY VARIANCES DETECTED</div>
+            <div style="display:flex; flex-direction:column; gap:3px; font-size:11px;">
+              ${qtyInvs.map(i => `<div>&bull; <code>${i.invoice.invoiceId}</code> (${i.invoice.supplierName}): Billed ${i.reconciliation.quantityInvoiced} EA vs ${i.reconciliation.quantityReceived} EA received (<strong>${i.reconciliation.quantityStatus}</strong>)</div>`).join('')}
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('price variance') || q.includes('which invoices have price variance')) {
+        const priceInvs = app.invoices.filter(i => i.reconciliation && i.reconciliation.priceVariancePercentage > 0);
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">PRICE VARIANCES DETECTED</div>
+            <div style="display:flex; flex-direction:column; gap:3px; font-size:11px;">
+              ${priceInvs.map(i => `<div>&bull; <code>${i.invoice.invoiceId}</code> (${i.invoice.supplierName}): +${i.reconciliation.priceVariancePercentage.toFixed(1)}% variance (Tolerance Key PP)</div>`).join('')}
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('po mismatch') || q.includes('vendor mismatch')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">PO & VENDOR MISMATCHES</div>
+            <div style="font-size:11px; line-height:1.45;">
+              <div>&bull; <code>INV-2026-00004</code>: Apex Facility Solutions billed against Siemens PO 4500012600 (Vendor Identity Mismatch).</div>
+              <div style="margin-top:3px;">&bull; <code>INV-2026-00003</code>: Non-PO recurring utility routing directly to IT Cost Center CC-1020-IT.</div>
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('matching issues') || q.includes('which invoices have matching issues')) {
+        const issues = app.invoices.filter(i => i.reconciliation && (!i.reconciliation.vendorMatched || i.reconciliation.quantityStatus !== 'EXACT_MATCH' || i.reconciliation.priceVariancePercentage > 5 || i.reconciliation.qualityStatus === 'REJECTIONS_DETECTED'));
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">INVOICES WITH MATCHING ISSUES (${issues.length})</div>
+            <div style="display:flex; flex-direction:column; gap:3px; font-size:11px;">
+              ${issues.map(i => `<div>&bull; <code>${i.invoice.invoiceId}</code> &bull; ${i.invoice.supplierName} &bull; ${i.aiDecision.recommendation}</div>`).join('')}
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('tolerance') || q.includes('matching logic')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">SAP TOLERANCE KEY LOGIC</div>
+            <div style="font-size:11px; line-height:1.45;">
+              <div>&bull; <strong>PP (Price Variance):</strong> Upper limit 5.0%. Breaches trigger price exception and payment block.</div>
+              <div>&bull; <strong>DQ (Quantity Variance):</strong> Zero-tolerance on over-delivery unless under-delivery tolerance is configured.</div>
+              <div>&bull; <strong>BD (Small Differences):</strong> Automatic write-off if delta &le; ₹50.00.</div>
+            </div>
+          </div>
+        `;
+      }
+      const matched = app.invoices.filter(i => i.reconciliation && i.reconciliation.overallMatchStatus === 'MATCHED').length;
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">CURRENT 3-WAY MATCH STATUS</div>
+          <div style="font-size:11px; line-height:1.45;">
+            <div>&bull; <strong>Fully Matched:</strong> ${matched} invoices</div>
+            <div>&bull; <strong>Quantity/Price Variances:</strong> ${app.invoices.length - matched} invoices</div>
+            <div style="margin-top:4px; color:var(--text-secondary);">Select an invoice row or click Drilldown to inspect item-by-item tolerances.</div>
+          </div>
+        </div>
+      `;
+    }
+  },
+
+  // 7. BUSINESS VALIDATION
+  businessValidation: {
+    id: 'businessValidation',
+    title: 'Business Validation',
+    description: 'Contextual human-in-the-loop business owner approvals',
+    getContextLabel: () => 'Context: Business Validation',
+    getQuestions: () => [
+      'Which invoices are awaiting validation?',
+      'What does the business owner need to verify?',
+      'Which invoices have already been validated?',
+      'Which invoices require manual review?',
+      'What are the common validation reasons?',
+      'Who is assigned to validate?',
+      'What happens after owner validation?',
+      'What should the business owner check before approval?',
+      'Which invoices are blocked from validation?',
+    ],
+    resolver: (rawQuery, app) => {
+      const q = rawQuery.toLowerCase();
+      const pending = app.invoices.filter(i => i.invoice.processingStatus === 'PENDING_BUSINESS_VALIDATION' || i.aiDecision.recommendation === 'BUSINESS_VALIDATION_REQUIRED');
+      const validated = app.invoices.filter(i => i.invoice.processingStatus === 'BUSINESS_VALIDATED' || (i.businessOwnerDecision && i.businessOwnerDecision.action === 'ACCEPT'));
+
+      if (q.includes('awaiting validation') || q.includes('which invoices are awaiting validation')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">AWAITING OWNER VALIDATION (${pending.length})</div>
+            <div style="display:flex; flex-direction:column; gap:3px; font-size:11px;">
+              ${pending.map(i => `<div>&bull; <code>${i.invoice.invoiceId}</code> &bull; ${i.invoice.supplierName} &bull; <strong>₹${(i.invoice.totalGrossAmount || 0).toLocaleString('en-IN')}</strong></div>`).join('') || '<div>✓ All pending items validated.</div>'}
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('verify') || q.includes('what does the business owner need to verify')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">OWNER VERIFICATION CHECKLIST</div>
+            <div style="font-size:11px; line-height:1.45;">
+              <div>1. <strong>Service Receipt:</strong> Confirm delivery of services or physical goods.</div>
+              <div>2. <strong>Commercial Rate:</strong> Approve acceptable variance above original PO.</div>
+              <div>3. <strong>Cost Assignment:</strong> Verify correct cost center assignment for Non-PO items.</div>
+              <div>4. <strong>Statutory Timeline:</strong> Ensure approval within 48h for Indian e-invoices.</div>
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('already been validated') || q.includes('which invoices have already been validated')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">VALIDATED INVOICES (${validated.length})</div>
+            <div style="display:flex; flex-direction:column; gap:3px; font-size:11px;">
+              ${validated.map(i => `<div>&bull; <code>${i.invoice.invoiceId}</code> &bull; ${i.invoice.supplierName} &bull; Validated by Aarav Mehta</div>`).join('') || '<div>No invoices validated yet.</div>'}
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('who is assigned') || q.includes('assigned to validate')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">ASSIGNED BUSINESS VALIDATOR</div>
+            <div style="font-size:11px; line-height:1.45;">
+              <strong>Aarav Mehta</strong> (Business Owner &bull; Corporate Services)<br>
+              Email: <code>aarav.mehta@demo.company</code><br>
+              Authority: Non-PO approvals up to ₹5,00,000, Commercial Variance Sign-Off.
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('after owner validation') || q.includes('what happens after')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">POST-VALIDATION TRANSITION</div>
+            <div style="font-size:11px; line-height:1.45; color:var(--text-secondary);">
+              Once validated by the business owner, the invoice status updates to <code>BUSINESS_VALIDATED</code>, the AI recommendation transitions to <code>AUTO_PROCEED</code> with confidence score &ge; 96%, and the <strong>Post to S/4HANA (MIRO)</strong> action becomes enabled.
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('blocked from validation') || q.includes('blocked')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">BLOCKED FROM VALIDATION</div>
+            <div style="font-size:11px; line-height:1.45;">
+              Invoices placed on HOLD due to duplicate suspicion (<code>INV-2026-00007</code>), vendor mismatch (<code>INV-2026-00004</code>), or QM rejection (<code>INV-2026-00006</code>) cannot be validated until root-cause exceptions are resolved.
+            </div>
+          </div>
+        `;
+      }
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">BUSINESS VALIDATION OVERVIEW</div>
+          <div style="font-size:11px; line-height:1.45; color:var(--text-secondary);">
+            Business Owner validation provides contextual approval for invoices flagged for variance or non-PO handling. Click any invoice card to inspect evidence or record approval.
+          </div>
+        </div>
+      `;
+    }
+  },
+
+  // 8. EXCEPTIONS & BLOCKS
+  exceptions: {
+    id: 'exceptions',
+    title: 'Exceptions & Blocks',
+    description: 'Root-cause analysis of blocked and held invoices',
+    getContextLabel: () => 'Context: Exceptions & Blocks',
+    getQuestions: () => [
+      'What invoices are currently blocked?',
+      'Why are invoices blocked?',
+      'Show the highest-priority exceptions.',
+      'Which exceptions are related to price?',
+      'Which exceptions are related to quantity?',
+      'Which exceptions are related to PO/GR?',
+      'Which invoices require manual review?',
+      'What should I do to resolve this exception?',
+      'How many exceptions are currently open?',
+    ],
+    resolver: (rawQuery, app) => {
+      const q = rawQuery.toLowerCase();
+      const blocked = app.invoices.filter(i => ['HOLD', 'REJECT'].includes(i.aiDecision.recommendation) || i.invoice.paymentStatus === 'BLOCKED');
+
+      if (q.includes('currently blocked') || q.includes('what invoices are currently blocked')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">CURRENTLY BLOCKED INVOICES (${blocked.length})</div>
+            <div style="display:flex; flex-direction:column; gap:3px; font-size:11px;">
+              ${blocked.map(i => `<div>&bull; <code>${i.invoice.invoiceId}</code> (${i.invoice.supplierName}): <strong>${i.aiDecision.recommendation}</strong> &bull; ${i.aiDecision.explanation.whyRecommended[0] || 'Hold'}</div>`).join('')}
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('why are invoices blocked') || q.includes('why are')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">ROOT CAUSES OF BLOCKS</div>
+            <div style="font-size:11px; line-height:1.45;">
+              <div>1. <strong>Quality Rejections:</strong> SAP QM inspection lot failed (Defect lot QALS).</div>
+              <div>2. <strong>Duplicate Hash Collisions:</strong> Identical supplier & invoice number already posted.</div>
+              <div>3. <strong>Vendor Identity Mismatch:</strong> Invoicing vendor code does not match PO vendor code.</div>
+              <div>4. <strong>Price Variance Exceeding Key PP:</strong> Unit price &gt; 5.0% above contract rate.</div>
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('related to price') || q.includes('price')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">PRICE VARIANCE EXCEPTIONS</div>
+            <div style="font-size:11px; line-height:1.45;">
+              <code>INV-2026-00005</code> (Tata Consultancy Services): Invoiced rate ₹450 vs PO contracted unit price ₹400 (+12.5% delta). Exceeds standard SAP tolerance key PP (5.0%).
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('related to quantity') || q.includes('quantity')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">QUANTITY VARIANCE EXCEPTIONS</div>
+            <div style="font-size:11px; line-height:1.45;">
+              <code>INV-2026-00002</code> (Tata Motors Ltd): Billed 65 EA vs recorded warehouse Goods Receipt 50 EA (+30% over-delivery). 15 units unverified.
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('how to resolve') || q.includes('resolve this exception') || q.includes('resolution')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">RESOLUTION PLAYBOOKS</div>
+            <div style="font-size:11px; line-height:1.45;">
+              <div>&bull; <strong>Price Variance:</strong> Request revised invoice or vendor credit memo.</div>
+              <div>&bull; <strong>Quantity Over-Delivery:</strong> Coordinate with warehouse receiver for secondary GR or partial park (MIR7).</div>
+              <div>&bull; <strong>Quality Defect:</strong> Issue Return-to-Vendor (RTV) and dispute invoice line.</div>
+              <div>&bull; <strong>Duplicate:</strong> Reject invoice with immutable audit notation.</div>
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('how many exceptions') || q.includes('open')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">OPEN EXCEPTIONS SUMMARY</div>
+            <div style="font-size:11px; line-height:1.45;">
+              There are currently <strong>${blocked.length} critical exceptions</strong> and <strong>2 tolerance variances</strong> requiring human review in this demo cycle.
+            </div>
+          </div>
+        `;
+      }
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">EXCEPTIONS & BLOCKS OVERVIEW</div>
+          <div style="font-size:11px; line-height:1.45; color:var(--text-secondary);">
+            Exceptions prevent improper disbursements and safeguard compliance. Select a question below to analyze specific blocks.
+          </div>
+        </div>
+      `;
+    }
+  },
+
+  // 9. GST RECONCILIATION
+  gst: {
+    id: 'gst',
+    title: 'GST Reconciliation',
+    description: 'Statutory GSTR-2B input tax credit reconciliation',
+    getContextLabel: () => 'Context: GST Reconciliation',
+    getQuestions: () => [
+      'What invoices are pending GST reconciliation?',
+      'Which invoices have GST mismatches?',
+      'Which invoices have missing statutory information?',
+      'What is the current reconciliation status?',
+      'Explain the GST reconciliation workflow.',
+      'Which invoices require attention?',
+      'What is the current statutory SLA status?',
+      'Show unresolved reconciliation items.',
+    ],
+    resolver: (rawQuery, app) => {
+      const q = rawQuery.toLowerCase();
+      const totalITC = 245000;
+      const atRiskITC = 18500;
+
+      if (q.includes('mismatches') || q.includes('which invoices have gst mismatches')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">GST GSTR-2B MISMATCHES</div>
+            <div style="font-size:11px; line-height:1.45;">
+              <code>INV-2026-00008</code> (Infosys Technologies): Supplier filed ₹81,000 tax in GSTR-1, but auto-drafted GSTR-2B ITC return records ₹68,400.<br>
+              <strong>At-Risk ITC:</strong> ₹12,600 Input Tax Credit blocked under Section 16(2)(aa) of CGST Act.
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('current reconciliation status') || q.includes('status')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">GST RECONCILIATION SUMMARY</div>
+            <div style="display:grid; grid-template-columns:120px 1fr; gap:3px; font-size:11px;">
+              <span><strong>Total Claimed ITC:</strong></span><span>₹${totalITC.toLocaleString('en-IN')}</span>
+              <span><strong>Matched ITC:</strong></span><span>₹${(totalITC - atRiskITC).toLocaleString('en-IN')} (Eligible)</span>
+              <span><strong>At-Risk / Blocked:</strong></span><span>₹${atRiskITC.toLocaleString('en-IN')} (Mismatched)</span>
+              <span><strong>Compliance Rate:</strong></span><span>92.4%</span>
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('statutory sla') || q.includes('sla status') || q.includes('sla')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">STATUTORY 48-HOUR SLA STATUS</div>
+            <div style="font-size:11px; line-height:1.45;">
+              Under Indian GST statutory guidelines, e-invoices with valid IRN must be accepted or contested within 48 hours.<br>
+              &bull; <code>INV-2026-00008</code> is currently at <strong>4.5 hours remaining</strong> (Status: <code>APPROACHING_BREACH</code>). Immediate action required.
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('explain') || q.includes('workflow')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">GST RECONCILIATION WORKFLOW</div>
+            <div style="font-size:11px; line-height:1.45; color:var(--text-secondary);">
+              1) Validates supplier GSTIN and buyer GSTIN against GST portal records.<br>
+              2) Compares billed CGST/SGST/IGST against GSTR-2B return.<br>
+              3) Automatically clears ITC for 100% matched items; flags variances for supplier dispute before payment.
+            </div>
+          </div>
+        `;
+      }
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">GST RECONCILIATION CONTEXT</div>
+          <div style="font-size:11px; line-height:1.45; color:var(--text-secondary);">
+            Protects enterprise from ineligible Input Tax Credit claims. Ask about GST mismatches, GSTR-2B compliance, or statutory SLAs.
+          </div>
+        </div>
+      `;
+    }
+  },
+
+  // 10. INTEGRATION MONITOR
+  integration: {
+    id: 'integration',
+    title: 'Integration Monitor',
+    description: 'SAP Integration Suite & API pipeline health',
+    getContextLabel: () => 'Context: Integration Monitor',
+    getQuestions: () => [
+      'Are all integrations healthy?',
+      'Which integrations have failed?',
+      'Show recent integration errors.',
+      'What happened to the latest SAP context request?',
+      'Which inbound channels are active?',
+      'Are any documents waiting for processing?',
+      'Explain the current integration status.',
+      'Show recent processing events.',
+    ],
+    resolver: (rawQuery, app) => {
+      const q = rawQuery.toLowerCase();
+      const messages = app.integrationMessages || [];
+      const failed = messages.filter(m => m.status === 'FAILED');
+
+      if (q.includes('healthy') || q.includes('health')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">INTEGRATION SUITE HEALTH</div>
+            <div style="font-size:11px; line-height:1.45;">
+              Overall Pipeline Health: <strong style="color:#188038;">OPERATIONAL (98.2% Uptime)</strong><br>
+              &bull; <strong>S/4HANA OData / RFC Adapter:</strong> Online & connected.<br>
+              &bull; <strong>IRP GSTN REST Adapter:</strong> Online (Latency 142ms).<br>
+              &bull; <strong>AP Mailbox IMAP Listener:</strong> Active polling (30s interval).
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('failed') || q.includes('errors')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">INTEGRATION FAILURES (${failed.length})</div>
+            <div style="display:flex; flex-direction:column; gap:3px; font-size:11px;">
+              ${failed.map(m => `<div>&bull; <code>${m.messageId}</code> &bull; ${m.flowName}: ${m.errorMessage || 'HTTP 504 Gateway Timeout'}</div>`).slice(0, 3).join('') || '<div>✓ Zero active integration failures.</div>'}
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('channels are active') || q.includes('active channels')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">ACTIVE INBOUND ADAPTERS</div>
+            <div style="font-size:11px; line-height:1.45;">
+              1. <code>SAP_INTEG_SCANNER_FILE</code>: High-speed PDF ingestion listener.<br>
+              2. <code>SAP_INTEG_MAILBOX_IMAP</code>: Secure email parser listener.<br>
+              3. <code>SAP_INTEG_IRP_REST</code>: E-Invoice JSON webhook & polling service.
+            </div>
+          </div>
+        `;
+      }
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">INTEGRATION MONITOR STATUS</div>
+          <div style="font-size:11px; line-height:1.45;">
+            Monitors end-to-end telemetry across SAP Integration Suite (Cloud Integration/CPI) message flows. All endpoints currently reporting nominal status.
+          </div>
+        </div>
+      `;
+    }
+  },
+
+  // 11. AUDIT TRAIL
+  audit: {
+    id: 'audit',
+    title: 'Audit Trail',
+    description: 'Immutable enterprise provenance and lifecycle ledger',
+    getContextLabel: () => 'Context: Audit Trail',
+    getQuestions: () => [
+      'What happened to this invoice?',
+      'Show recent invoice workflow events.',
+      'Who validated this invoice?',
+      'When was this invoice posted?',
+      'When was payment completed?',
+      'Show recent exceptions.',
+      'Explain the invoice lifecycle.',
+      'Show the latest workflow event.',
+    ],
+    resolver: (rawQuery, app) => {
+      const q = rawQuery.toLowerCase();
+      const events = app.auditEvents || [];
+
+      if (q.includes('recent invoice workflow events') || q.includes('recent events') || q.includes('events')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">RECENT AUDIT TRAIL EVENTS</div>
+            <div style="display:flex; flex-direction:column; gap:4px; font-size:11px;">
+              ${events.slice(0, 4).map(e => `<div>&bull; <small>${e.timestamp ? e.timestamp.slice(11, 19) : '10:00:00'}</small> <strong>${e.action}</strong> by <code>${e.actorId}</code> (${e.entityId || 'SYS'})</div>`).join('') || '<div>Audit ledger initialized with baseline lifecycle milestones.</div>'}
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('who validated') || q.includes('who')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">VALIDATION ACTORS</div>
+            <div style="font-size:11px; line-height:1.45;">
+              Business validations are authenticated under <strong>Aarav Mehta</strong> (Role: Business Owner, Corporate Services). All acceptances record cryptographic timestamp and rationale.
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('lifecycle') || q.includes('explain')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">AUDIT TRAIL GOVERNANCE</div>
+            <div style="font-size:11px; line-height:1.45; color:var(--text-secondary);">
+              Every AI classification, user decision, S/4HANA document posting, and treasury disbursement writes an immutable entry into the enterprise audit ledger. Records are compliant with SOX and statutory financial audit mandates.
+            </div>
+          </div>
+        `;
+      }
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">AUDIT LEDGER CONTEXT</div>
+          <div style="font-size:11px; line-height:1.45; color:var(--text-secondary);">
+            Provides complete legal provenance for each invoice in the system. Select any question below to inspect recent milestones.
+          </div>
+        </div>
+      `;
+    }
+  },
+
+  // 12. INBOUND GATEWAYS
+  inboundGateways: {
+    id: 'inboundGateways',
+    title: 'Inbound Gateways',
+    description: 'Multi-channel document intake & extraction pipeline',
+    getContextLabel: (app) => {
+      const p = app.activeMockPortal === 'physical'
+        ? 'Physical Scanner'
+        : app.activeMockPortal === 'email'
+        ? 'AP Mailbox'
+        : 'Government E-Invoice';
+      return `Context: Inbound Gateways / ${p}`;
+    },
+    getQuestions: () => [
+      'What inbound channels are available?',
+      'How many physical invoices were received?',
+      'How many vendor emails were received?',
+      'How many e-invoices were received?',
+      'What is the current ingestion status?',
+      'Which documents are waiting for ingestion?',
+      'Explain the physical scanner workflow.',
+      'Explain the AP mailbox workflow.',
+      'Explain the IRP workflow.',
+    ],
+    resolver: (rawQuery, app) => {
+      const q = rawQuery.toLowerCase();
+      const status = app.channelBatchStatus || {};
+
+      if (q.includes('inbound channels are available') || q.includes('channels available') || q.includes('available')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">THREE ENTERPRISE INGESTION CHANNELS</div>
+            <div style="display:flex; flex-direction:column; gap:3px; font-size:11px;">
+              <div>1. <strong>Physical Gate Scanner:</strong> Gate camera & high-speed scanner at plant entry (6 documents).</div>
+              <div>2. <strong>Vendor AP Mailbox:</strong> RFC 822 email parser for vendor invoice emails (6 documents).</div>
+              <div>3. <strong>Government E-Invoice IRP:</strong> Statutory GSTN integration verifying 64-char IRN (6 documents).</div>
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('how many physical') || q.includes('physical invoices')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">PHYSICAL SCANNER BATCH</div>
+            <div style="font-size:11px; line-height:1.45;">
+              <strong>6 physical invoices</strong> are indexed in the physical gate intake channel. Ingestion status: <strong>${status.physical?.processed ? 'Processed & Loaded' : 'Ready for Ingestion'}</strong>.
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('how many vendor emails') || q.includes('emails')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">VENDOR AP MAILBOX BATCH</div>
+            <div style="font-size:11px; line-height:1.45;">
+              <strong>6 vendor emails</strong> received from verified supplier domains. Ingestion status: <strong>${status.email?.processed ? 'Processed & Loaded' : 'Ready for Ingestion'}</strong>.
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('how many e-invoices') || q.includes('e-invoices')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">GOVERNMENT IRP E-INVOICE BATCH</div>
+            <div style="font-size:11px; line-height:1.45;">
+              <strong>6 statutory e-invoices</strong> retrieved from GSTN IRP portal. Ingestion status: <strong>${status.einvoice?.processed ? 'Processed & Loaded' : 'Ready for Ingestion'}</strong>.
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('ingestion status') || q.includes('current ingestion status')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">CHANNEL INGESTION STATUS</div>
+            <div style="display:grid; grid-template-columns:140px 1fr; gap:3px; font-size:11px;">
+              <span><strong>Physical Scanner:</strong></span><span>${status.physical?.processed ? '<span style="color:#188038; font-weight:600;">✓ Ingested</span>' : 'Pending Ingestion'}</span>
+              <span><strong>AP Mailbox:</strong></span><span>${status.email?.processed ? '<span style="color:#188038; font-weight:600;">✓ Ingested</span>' : 'Pending Ingestion'}</span>
+              <span><strong>Government IRP:</strong></span><span>${status.einvoice?.processed ? '<span style="color:#188038; font-weight:600;">✓ Ingested</span>' : 'Pending Ingestion'}</span>
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('scanner workflow') || q.includes('physical')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">PHYSICAL SCANNER WORKFLOW</div>
+            <div style="font-size:11px; line-height:1.45; color:var(--text-secondary);">
+              Gate security/dock scans supplier invoice &rarr; PDF rendered &rarr; OCR extracts header and line items &rarr; 3-way match verified against PO & Goods Receipt &rarr; Indexed into Decision Center queue.
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('mailbox workflow') || q.includes('email')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">AP MAILBOX WORKFLOW</div>
+            <div style="font-size:11px; line-height:1.45; color:var(--text-secondary);">
+              Vendor emails <code>ap-invoices@company.com</code> &rarr; IMAP listener parses RFC 822 MIME & extracts PDF &rarr; Vendor authentication check &rarr; Invoiced data indexed into Decision Center.
+            </div>
+          </div>
+        `;
+      }
+      if (q.includes('irp workflow') || q.includes('irp')) {
+        return `
+          <div>
+            <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">GOVERNMENT IRP WORKFLOW</div>
+            <div style="font-size:11px; line-height:1.45; color:var(--text-secondary);">
+              Polls GSTN Invoice Registration Portal (IRP) &rarr; Verifies 64-char IRN hash & digital signature &rarr; Cross-checks auto-drafted GSTR-2B &rarr; Indexed into Decision Center with 48h SLA tracking.
+            </div>
+          </div>
+        `;
+      }
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">INBOUND GATEWAYS CONTEXT</div>
+          <div style="font-size:11px; line-height:1.45; color:var(--text-secondary);">
+            You are viewing the multi-channel intake gateway. You can trigger multi-stage batch processing for each channel or inspect source PDF/JSON files.
+          </div>
+        </div>
+      `;
+    }
+  },
+};
+
 class InvoiceDecisionApp {
   constructor() {
     this.invoices = [];
@@ -72,6 +1265,10 @@ class InvoiceDecisionApp {
     this.auditEvents = [];
     this.gstData = { records: [], summary: null };
     this.currentValidatingInvoiceId = null;
+    this.selectedInboxInvoiceId = null;
+    this.selectedReconInvoiceId = null;
+    this.selectedValidationInvoiceId = null;
+    this.selectedExceptionId = null;
     this.isSidebarCollapsed = false;
 
     // Single Mock User Profile (Aarav Mehta, Business Owner, Corporate Services)
@@ -300,8 +1497,17 @@ class InvoiceDecisionApp {
       targetPanel.style.display = 'block';
     }
 
+    if (viewName !== 'inbox') this.selectedInboxInvoiceId = null;
+    if (viewName !== 'reconciliation') this.selectedReconInvoiceId = null;
+    if (viewName !== 'businessValidation') this.selectedValidationInvoiceId = null;
+    if (viewName !== 'exceptions') this.selectedExceptionId = null;
+
     this.updateBreadcrumbsAndHeader(viewName);
     this.renderCurrentView();
+
+    if (this.isJouleDrawerOpen && this.isJouleDrawerOpen()) {
+      this.updateJouleContext(false);
+    }
   }
 
   toggleSidebar() {
@@ -373,10 +1579,6 @@ class InvoiceDecisionApp {
               <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.toggleWhatIfPanel()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--brand-primary)" stroke-width="2"><path d="M12 20v-6M6 20V10M18 20V4"></path></svg>
                 <span>What-If Simulator</span>
-              </button>
-              <button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.toggleJouleDrawer()" style="display:inline-flex; align-items:center; gap:6px; background:linear-gradient(135deg, #0A6ED1 0%, #104C8B 100%); border-color:#0A6ED1;" title="Contextual Joule-style AI invoice assistant">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                <span>✨ Joule</span>
               </button>
             `,
           }
@@ -794,6 +1996,18 @@ class InvoiceDecisionApp {
       .join('');
   }
 
+  selectInboxInvoice(invoiceId, event) {
+    if (event) {
+      const target = event.target;
+      if (target.closest('button') || target.closest('a')) return;
+    }
+    this.selectedInboxInvoiceId = invoiceId;
+    this.renderInboxTable();
+    if (this.isJouleDrawerOpen && this.isJouleDrawerOpen()) {
+      this.updateJouleContext(false);
+    }
+  }
+
   // --------------------------------------------------------------------------
   // VIEW 2: INVOICE INBOX
   // --------------------------------------------------------------------------
@@ -821,9 +2035,10 @@ class InvoiceDecisionApp {
 
         const matchBadge = this.getMatchStatusBadge(item.reconciliation, item.invoice.purchaseOrderReference);
         const paymentBadge = this.getPaymentStatusBadge(item.invoice.paymentStatus, item.invoice.clearingStatus);
+        const isSelected = this.selectedInboxInvoiceId === item.invoice.invoiceId;
 
         return `
-          <tr>
+          <tr class="inbox-row ${isSelected ? 'selected-row' : ''}" onclick="app.selectInboxInvoice('${item.invoice.invoiceId}', event)" style="cursor:pointer;" title="Click to focus invoice in Joule assistant">
             <td><strong>${item.invoice.invoiceId}</strong><br><small style="color:var(--text-secondary);">${item.invoice.invoiceNumber}</small></td>
             <td>
               <a href="#" style="color:var(--brand-primary); text-decoration:none; font-weight:600;" onclick="app.openSupplierDrawer('${item.invoice.supplierName}'); return false;">
@@ -870,6 +2085,9 @@ class InvoiceDecisionApp {
     this.updateBreadcrumbsAndHeader('decisionCenter');
     this.renderDecisionWorkspace();
     this.runWhatIfSimulation();
+    if (this.isJouleDrawerOpen && this.isJouleDrawerOpen()) {
+      this.updateJouleContext(false);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -882,6 +2100,9 @@ class InvoiceDecisionApp {
     if (d) d.style.display = 'none';
     this.updateBreadcrumbsAndHeader('decisionCenter');
     this.renderDecisionTable();
+    if (this.isJouleDrawerOpen && this.isJouleDrawerOpen()) {
+      this.updateJouleContext(false);
+    }
   }
 
   renderDecisionCenter() {
@@ -2144,6 +3365,18 @@ class InvoiceDecisionApp {
     if (drawer) drawer.classList.remove('open');
   }
 
+  selectReconInvoice(invoiceId, event) {
+    if (event) {
+      const target = event.target;
+      if (target.closest('button') || target.closest('a')) return;
+    }
+    this.selectedReconInvoiceId = invoiceId;
+    this.renderReconciliationTable();
+    if (this.isJouleDrawerOpen && this.isJouleDrawerOpen()) {
+      this.updateJouleContext(false);
+    }
+  }
+
   // --------------------------------------------------------------------------
   // VIEW 4: PO & RECONCILIATION
   // --------------------------------------------------------------------------
@@ -2168,9 +3401,10 @@ class InvoiceDecisionApp {
             : `<span class="sap-badge sap-badge-neutral">N/A</span>`;
 
         const variancePct = reconciliation?.priceVariancePercentage != null ? reconciliation.priceVariancePercentage.toFixed(1) : '0.0';
+        const isSelected = this.selectedReconInvoiceId === invoice.invoiceId;
 
         return `
-          <tr>
+          <tr class="recon-row ${isSelected ? 'selected-row' : ''}" onclick="app.selectReconInvoice('${invoice.invoiceId}', event)" style="cursor:pointer;" title="Click to focus in Joule assistant">
             <td><strong>${invoice.invoiceId}</strong><br><small style="color:var(--text-muted);">${invoice.supplierName}</small></td>
             <td>${invoice.purchaseOrderReference ? `<code>${invoice.purchaseOrderReference}</code>` : '<em style="color:var(--text-muted);">Non-PO</em>'}</td>
             <td>${vendorBadge}</td>
@@ -2624,6 +3858,9 @@ class InvoiceDecisionApp {
     if (portal === 'einvoice') document.getElementById('btnPortalEInvoice')?.classList.add('active');
 
     this.renderMockPortals();
+    if (this.isJouleDrawerOpen && this.isJouleDrawerOpen()) {
+      this.updateJouleContext(false);
+    }
   }
 
   renderMockPortals() {
@@ -4058,13 +5295,16 @@ Tel: +91 22 6790 0000 | Email: ${meta.emailSender || 'billing@vendor.com'}
     }, 4000);
   }
 
+    // --------------------------------------------------------------------------
+  // GLOBAL SAP JOULE CONTEXTUAL ASSISTANT (CENTRALIZED CONTROLLER)
   // --------------------------------------------------------------------------
-  // JOULE-STYLE CONTEXTUAL AI INVOICE ASSISTANT
-  // --------------------------------------------------------------------------
-  toggleJouleDrawer() {
+  isJouleDrawerOpen() {
     const drawer = document.getElementById('jouleDrawer');
-    if (!drawer) return;
-    if (drawer.classList.contains('open')) {
+    return Boolean(drawer && drawer.classList.contains('open'));
+  }
+
+  toggleJouleDrawer() {
+    if (this.isJouleDrawerOpen()) {
       this.closeJouleDrawer();
     } else {
       this.openJouleDrawer();
@@ -4074,57 +5314,139 @@ Tel: +91 22 6790 0000 | Email: ${meta.emailSender || 'billing@vendor.com'}
   openJouleDrawer() {
     const drawer = document.getElementById('jouleDrawer');
     if (!drawer) return;
+    drawer.classList.add('open');
+    this.updateJouleContext(true);
+  }
 
-    const item = this.invoices.find((i) => i.invoice.invoiceId === this.selectedInvoiceId);
-    if (!item) {
-      this.showToast('No active invoice selected for Joule Assistant.', 'info');
-      return;
+  closeJouleDrawer() {
+    const drawer = document.getElementById('jouleDrawer');
+    if (drawer) drawer.classList.remove('open');
+  }
+
+  getCurrentJouleContext() {
+    // 1. If in Decision Center and detail workspace is active:
+    if (this.activeView === 'decisionCenter' && this.isDecisionDetailActive && this.selectedInvoiceId) {
+      return {
+        key: 'invoiceDetail',
+        cfg: JOULE_CONTEXTS.invoiceDetail,
+        label: JOULE_CONTEXTS.invoiceDetail.getContextLabel(this, this.selectedInvoiceId),
+        invoiceId: this.selectedInvoiceId,
+      };
     }
 
-    const { invoice, aiDecision } = item;
+    // 2. If in Inbox and an invoice row has been selected:
+    if (this.activeView === 'inbox' && this.selectedInboxInvoiceId) {
+      return {
+        key: 'invoiceDetail',
+        cfg: JOULE_CONTEXTS.invoiceDetail,
+        label: JOULE_CONTEXTS.invoiceDetail.getContextLabel(this, this.selectedInboxInvoiceId),
+        invoiceId: this.selectedInboxInvoiceId,
+      };
+    }
 
-    // Render Dynamic Context Header
+    // 3. If in Reconciliation and an invoice row has been selected:
+    if (this.activeView === 'reconciliation' && this.selectedReconInvoiceId) {
+      return {
+        key: 'invoiceDetail',
+        cfg: JOULE_CONTEXTS.invoiceDetail,
+        label: JOULE_CONTEXTS.invoiceDetail.getContextLabel(this, this.selectedReconInvoiceId),
+        invoiceId: this.selectedReconInvoiceId,
+      };
+    }
+
+    // 4. Map by activeView
+    let key = 'overview';
+    switch (this.activeView) {
+      case 'landing':
+        key = 'overview';
+        break;
+      case 'commandCenter':
+        key = 'commandCenter';
+        break;
+      case 'inbox':
+        key = 'invoiceInbox';
+        break;
+      case 'decisionCenter':
+        key = 'decisionCenter';
+        break;
+      case 'reconciliation':
+        key = 'poMatch';
+        break;
+      case 'businessValidation':
+        key = 'businessValidation';
+        break;
+      case 'exceptions':
+        key = 'exceptions';
+        break;
+      case 'gstReconciliation':
+        key = 'gst';
+        break;
+      case 'integration':
+        key = 'integration';
+        break;
+      case 'audit':
+        key = 'audit';
+        break;
+      case 'mockPortals':
+        key = 'inboundGateways';
+        break;
+      default:
+        key = 'overview';
+    }
+
+    const cfg = JOULE_CONTEXTS[key] || JOULE_CONTEXTS.overview;
+    return {
+      key,
+      cfg,
+      label: cfg.getContextLabel(this),
+      invoiceId: null,
+    };
+  }
+
+  updateJouleContext(isInitialOpen = false) {
+    const ctx = this.getCurrentJouleContext();
+
+    // 1. Context Header Bar
     const contextBar = document.getElementById('jouleContextBar');
     if (contextBar) {
-      contextBar.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <span><strong>Invoice:</strong> <code style="font-weight:700; color:var(--brand-primary);">${invoice.invoiceId}</code> (${invoice.invoiceNumber})</span>
-          <span>${this.getProcessingStatusBadge(invoice.processingStatus)}</span>
-        </div>
-        <div style="display:flex; justify-content:space-between; align-items:center; color:var(--text-secondary); margin-top:3px;">
-          <span><strong>Supplier:</strong> ${invoice.supplierName.slice(0, 24)}</span>
-          <span><strong>Gross:</strong> ₹${(invoice.totalGrossAmount || 0).toLocaleString('en-IN')}</span>
-        </div>
-        <div style="display:flex; align-items:center; gap:8px; margin-top:5px; padding-top:4px; border-top:1px dashed var(--border-subtle);">
-          <span style="font-weight:600; color:var(--text-muted);">AI Evaluation:</span>
-          ${this.getRecommendationBadge(aiDecision.recommendation)}
-          <span style="font-weight:600; color:var(--text-primary); font-size:11px;">(${aiDecision.confidenceScore}%)</span>
-        </div>
-      `;
+      if (ctx.invoiceId) {
+        const item = this.invoices.find((i) => i.invoice.invoiceId === ctx.invoiceId) || this.invoices[0];
+        if (item) {
+          const { invoice, aiDecision } = item;
+          contextBar.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span><strong>Invoice:</strong> <code style="font-weight:700; color:var(--brand-primary);">${invoice.invoiceId}</code> (${invoice.invoiceNumber})</span>
+              <span>${this.getProcessingStatusBadge(invoice.processingStatus)}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; color:var(--text-secondary); margin-top:3px;">
+              <span><strong>Supplier:</strong> ${invoice.supplierName.slice(0, 24)}</span>
+              <span><strong>Gross:</strong> ₹${(invoice.totalGrossAmount || 0).toLocaleString('en-IN')}</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; margin-top:5px; padding-top:4px; border-top:1px dashed var(--border-subtle);">
+              <span style="font-weight:600; color:var(--text-muted);">AI Evaluation:</span>
+              ${this.getRecommendationBadge(aiDecision.recommendation)}
+              <span style="font-weight:600; color:var(--text-primary); font-size:11px;">(${aiDecision.confidenceScore}%)</span>
+            </div>
+          `;
+        }
+      } else {
+        contextBar.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-weight:700; color:var(--text-primary); font-size:12px;">${ctx.label}</span>
+            <span class="sap-badge sap-badge-info" style="font-size:10px;">${ctx.cfg.title}</span>
+          </div>
+          <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">
+            ${ctx.cfg.description}
+          </div>
+        `;
+      }
     }
 
-    // Populate Predefined Question Chips (15 predefined inquiries from specification)
+    // 2. Suggested Question Chips
     const chipsWrap = document.getElementById('jouleQuestionChips');
     if (chipsWrap) {
-      const predefinedQuestions = [
-        'What is the invoice status?',
-        'Summarize this invoice',
-        'Why was this invoice flagged?',
-        'Compare this invoice with the PO',
-        'Show quantity variance',
-        'Show price variance',
-        'Who validated this invoice?',
-        'What is the payment status?',
-        'What should I do next?',
-        'Show the document reference chain',
-        'Has this invoice been posted?',
-        'Has payment been completed?',
-        'What exceptions exist?',
-        'Show the AI recommendation',
-        'Show PO and GR details',
-      ];
-
-      chipsWrap.innerHTML = predefinedQuestions
+      const questions = ctx.cfg.getQuestions(this);
+      chipsWrap.innerHTML = questions
         .map(
           (q) => `
             <button class="joule-chip-btn" onclick="app.askJoule('${q.replace(/'/g, "\\'")}')">
@@ -4135,40 +5457,61 @@ Tel: +91 22 6790 0000 | Email: ${meta.emailSender || 'billing@vendor.com'}
         .join('');
     }
 
-    // Initialize messages body with welcome greeting if empty or switched
-    const msgBody = document.getElementById('jouleMessagesBody');
-    if (msgBody && (!msgBody.dataset.activeInvoice || msgBody.dataset.activeInvoice !== invoice.invoiceId)) {
-      msgBody.dataset.activeInvoice = invoice.invoiceId;
-      msgBody.innerHTML = `
-        <div class="joule-chat-bubble-bot">
-          <div class="joule-bot-header">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <span>Joule Enterprise Assistant</span>
-          </div>
-          <div>
-            Hello! I am your contextual assistant for invoice decision intelligence. I have active context for invoice <strong>${invoice.invoiceId}</strong> (${invoice.invoiceNumber}) from <strong>${invoice.supplierName}</strong>.
-          </div>
-          <div style="margin-top:6px; color:var(--text-secondary); font-size:11px;">
-            Click any inquiry chip below or type a question to inspect 3-way matching, approval trace, payment settlement, or next actions.
-          </div>
-        </div>
-      `;
+    // 3. Input Query Placeholder
+    const input = document.getElementById('jouleInputQuery');
+    if (input) {
+      input.placeholder = ctx.invoiceId ? 'Ask about this invoice...' : 'Ask about this page...';
     }
 
-    drawer.classList.add('open');
-  }
+    // 4. Messages Body Greeting / Context Transition
+    const msgBody = document.getElementById('jouleMessagesBody');
+    if (msgBody) {
+      const activeCtxKey = msgBody.dataset.activeContextKey;
+      const activeInvId = msgBody.dataset.activeInvoiceId;
+      const contextChanged = activeCtxKey !== ctx.key || (ctx.invoiceId && activeInvId !== ctx.invoiceId);
 
-  closeJouleDrawer() {
-    const drawer = document.getElementById('jouleDrawer');
-    if (drawer) drawer.classList.remove('open');
+      if (isInitialOpen || !msgBody.children.length) {
+        msgBody.dataset.activeContextKey = ctx.key;
+        msgBody.dataset.activeInvoiceId = ctx.invoiceId || '';
+        let greetingText = '';
+        if (ctx.invoiceId) {
+          const item = this.invoices.find((i) => i.invoice.invoiceId === ctx.invoiceId);
+          greetingText = `Hello Aarav! I have loaded full S/4HANA context for <strong>${ctx.invoiceId}</strong> (${item ? item.invoice.supplierName : 'Supplier'} &bull; ₹${item ? (item.invoice.totalGrossAmount || 0).toLocaleString('en-IN') : ''}). Ask about PO matching, variances, posting status, or lifecycle references.`;
+        } else {
+          greetingText = `Hello Aarav! I am Joule, your contextual business assistant. I am ready to assist with <strong>${ctx.cfg.title}</strong>. Select a suggested question below or type your inquiry.`;
+        }
+
+        msgBody.innerHTML = `
+          <div class="joule-chat-bubble-bot">
+            <div class="joule-bot-header">
+              <span class="joule-asset-slot" data-asset="official-sap-joule" style="width:14px; height:14px; display:inline-flex;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9" fill-opacity="0.22" stroke="currentColor" stroke-width="1.8"/><text x="12" y="16.5" font-size="13" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif">J</text></svg>
+              </span>
+              <span>Joule Contextual Assistant</span>
+            </div>
+            <div>${greetingText}</div>
+            <div style="margin-top:6px; color:var(--text-secondary); font-size:11px;">
+              ${ctx.invoiceId ? 'Click any inquiry chip below to inspect 3-way matching, approval trace, or settlement.' : 'Click any inquiry chip below or ask about this page.'}
+            </div>
+          </div>
+        `;
+      } else if (contextChanged) {
+        msgBody.dataset.activeContextKey = ctx.key;
+        msgBody.dataset.activeInvoiceId = ctx.invoiceId || '';
+        const switchNotice = document.createElement('div');
+        switchNotice.style.cssText = 'align-self:center; margin:8px 0; font-size:10px; color:var(--text-muted); background:var(--surface-subtle); padding:4px 10px; border-radius:12px; border:1px solid var(--border-subtle);';
+        switchNotice.innerHTML = `Context updated to: <strong>${ctx.label}</strong>`;
+        msgBody.appendChild(switchNotice);
+        msgBody.scrollTop = msgBody.scrollHeight;
+      }
+    }
   }
 
   askJoule(questionText) {
     const msgBody = document.getElementById('jouleMessagesBody');
     if (!msgBody) return;
 
-    const item = this.invoices.find((i) => i.invoice.invoiceId === this.selectedInvoiceId);
-    if (!item) return;
+    const ctx = this.getCurrentJouleContext();
 
     // 1. Append User Message
     const userBubble = document.createElement('div');
@@ -4176,22 +5519,22 @@ Tel: +91 22 6790 0000 | Email: ${meta.emailSender || 'billing@vendor.com'}
     userBubble.textContent = questionText;
     msgBody.appendChild(userBubble);
 
-    // 2. Resolve Deterministic Contextual Answer
-    const answerHtml = this.resolveJouleAnswer(questionText, item);
+    // 2. Resolve Contextual Answer
+    const answerHtml = ctx.cfg.resolver(questionText, this, ctx);
 
     // 3. Append Bot Response Card
     const botBubble = document.createElement('div');
     botBubble.className = 'joule-chat-bubble-bot';
     botBubble.innerHTML = `
       <div class="joule-bot-header">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-        <span>Joule Response</span>
+        <span class="joule-asset-slot" data-asset="official-sap-joule" style="width:14px; height:14px; display:inline-flex;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9" fill-opacity="0.22" stroke="currentColor" stroke-width="1.8"/><text x="12" y="16.5" font-size="13" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif">J</text></svg>
+        </span>
+        <span>Joule &bull; ${ctx.cfg.title}</span>
       </div>
-      ${answerHtml}
+      <div>${answerHtml}</div>
     `;
     msgBody.appendChild(botBubble);
-
-    // Scroll to bottom
     msgBody.scrollTop = msgBody.scrollHeight;
   }
 
@@ -4204,7 +5547,7 @@ Tel: +91 22 6790 0000 | Email: ${meta.emailSender || 'billing@vendor.com'}
     this.askJoule(q);
   }
 
-  resolveJouleAnswer(rawQuery, item) {
+  resolveInvoiceDetailAnswer(rawQuery, item) {
     const { invoice, purchaseOrder, reconciliation, aiDecision, businessOwner, businessOwnerDecision, slaRecord } = item;
     const q = rawQuery.toLowerCase();
 
