@@ -3226,6 +3226,14 @@ body {
 /* ==========================================================================
    GLOBAL JOULE FLOATING ASSISTANT BUTTON (FAB) & RESPONSIVE DRAWER
    ========================================================================== */
+#jouleDrawer.drawer-backdrop {
+  z-index: 1050;
+}
+
+#jouleDrawer .drawer-panel {
+  z-index: 1051;
+}
+
 .joule-fab-btn {
   position: fixed;
   bottom: 24px;

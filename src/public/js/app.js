@@ -1345,17 +1345,20 @@ class InvoiceDecisionApp {
     const loginRoot = document.getElementById('productLoginPage');
     const appShellRoot = document.getElementById('productAppShell');
 
+    const globalJouleFab = document.getElementById('globalJouleFab');
     if (cleanRoute === '/login') {
       this.currentRoute = 'login';
       if (landingRoot) landingRoot.style.display = 'none';
       if (loginRoot) loginRoot.style.display = 'flex';
       if (appShellRoot) appShellRoot.style.display = 'none';
+      if (globalJouleFab) globalJouleFab.style.display = 'none';
       window.scrollTo({ top: 0, behavior: 'instant' });
     } else if (cleanRoute === '/app') {
       this.currentRoute = 'app';
       if (landingRoot) landingRoot.style.display = 'none';
       if (loginRoot) loginRoot.style.display = 'none';
       if (appShellRoot) appShellRoot.style.display = 'flex';
+      if (globalJouleFab) globalJouleFab.style.display = 'inline-flex';
       this.renderShellUserProfile();
       this.switchView(this.activeView || 'landing');
       window.scrollTo({ top: 0, behavior: 'instant' });
@@ -1366,6 +1369,8 @@ class InvoiceDecisionApp {
       if (landingRoot) landingRoot.style.display = 'block';
       if (loginRoot) loginRoot.style.display = 'none';
       if (appShellRoot) appShellRoot.style.display = 'none';
+      if (globalJouleFab) globalJouleFab.style.display = 'inline-flex';
+      this.updateJouleContext(false);
       window.scrollTo({ top: 0, behavior: 'instant' });
     }
 
