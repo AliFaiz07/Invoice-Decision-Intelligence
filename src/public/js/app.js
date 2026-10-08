@@ -374,6 +374,10 @@ class InvoiceDecisionApp {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--brand-primary)" stroke-width="2"><path d="M12 20v-6M6 20V10M18 20V4"></path></svg>
                 <span>What-If Simulator</span>
               </button>
+              <button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.toggleJouleDrawer()" style="display:inline-flex; align-items:center; gap:6px; background:linear-gradient(135deg, #0A6ED1 0%, #104C8B 100%); border-color:#0A6ED1;" title="Contextual Joule-style AI invoice assistant">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                <span>✨ Joule</span>
+              </button>
             `,
           }
         : {
@@ -1483,61 +1487,163 @@ class InvoiceDecisionApp {
     `;
 
     // 4. S/4HANA PROCUREMENT & FINANCE SETTLEMENT CHAIN
-    const docChain = item.documentChain || [];
-    let activeStageIdx = 0;
+    // 4. S/4HANA PROCUREMENT & FINANCE SETTLEMENT CHAIN (VERTICAL TIMELINE)
+    const grNode = item.documentChain?.find((n) => n.type === 'GOODS_RECEIPT');
+    const grRef = grNode && grNode.referenceNumber !== 'NOT CREATED' ? grNode.referenceNumber : (reconciliation.quantityReceived > 0 ? '5000018901' : 'NOT CREATED');
+    const parkedRef = invoice.parkedDocumentNumber || (isParked ? '5105600121' : 'NOT CREATED');
+    const accountingRef = invoice.accountingDocumentNumber || (isPosted ? '5100001234' : 'NOT CREATED');
+    const paymentRef = invoice.paymentDocumentNumber || (isPaid ? (invoice.paymentReference || '2000012345') : 'NOT CREATED');
+    const clearingRef = invoice.clearingDocumentNumber || (isCleared ? '2000012346' : 'NOT CREATED');
+
+    const timelineStages = [
+      {
+        num: 1,
+        title: 'PURCHASE ORDER',
+        ref: purchaseOrder ? `PO: ${purchaseOrder.poNumber}` : (invoice.purchaseOrderReference ? `PO: ${invoice.purchaseOrderReference}` : 'Non-PO Route'),
+        details: purchaseOrder ? `Net: ₹${(reconciliation.poTotalNet || 0).toLocaleString('en-IN')} • EKKO/EKPO Released` : (invoice.nonPOAccountAssignment ? `Cost Center: ${invoice.nonPOAccountAssignment.costCenter}` : 'Direct Accounting Route'),
+        statusText: purchaseOrder ? 'MATCHED' : (invoice.nonPOAccountAssignment ? 'ASSIGNED' : 'PENDING'),
+        isCompleted: Boolean(purchaseOrder || invoice.nonPOAccountAssignment),
+        isCurrent: false,
+        isException: false,
+      },
+      {
+        num: 2,
+        title: 'GOODS RECEIPT',
+        ref: grRef !== 'NOT CREATED' ? `GR: ${grRef}` : 'GR: Pending Receipt',
+        details: `Qty: ${reconciliation.quantityReceived} EA ${reconciliation.quantityReceived >= reconciliation.quantityInvoiced ? 'delivered' : 'partial'} at Plant 1010 (MSEG Movement 101)`,
+        statusText: reconciliation.quantityReceived > 0 ? (reconciliation.quantityStatus === 'EXACT_MATCH' ? 'RECEIVED' : 'PARTIAL RECEIPT') : 'PENDING',
+        isCompleted: reconciliation.quantityReceived > 0,
+        isCurrent: false,
+        isException: reconciliation.quantityStatus === 'OVER_DELIVERY',
+      },
+      {
+        num: 3,
+        title: 'SUPPLIER INVOICE',
+        ref: `${invoice.invoiceId} (${invoice.invoiceNumber})`,
+        details: `Amount: ₹${(invoice.totalGrossAmount || 0).toLocaleString('en-IN')} • Channel: ${invoice.sourceChannel.replace(/_/g, ' ')}`,
+        statusText: isOwnerValidated ? 'VALIDATED' : (recToRender === 'HOLD' ? 'EXCEPTION HOLD' : 'CAPTURED'),
+        isCompleted: isOwnerValidated || isParked || isPosted,
+        isCurrent: false,
+        isException: isOwnerRejected || recToRender === 'HOLD' || recToRender === 'POTENTIAL_DUPLICATE',
+      },
+      {
+        num: 4,
+        title: 'PARKED INVOICE',
+        ref: parkedRef !== 'NOT CREATED' ? `Doc: ${parkedRef}` : 'Doc: Not Parked',
+        details: isParked ? 'Preliminary Document in SAP S/4HANA MM (MIR7) • Payment Block R' : (isPosted ? 'Superseded by S/4HANA MIRO Posting' : 'Preliminary posting before final settlement'),
+        statusText: isParked ? 'PARKED' : (isPosted ? 'BYPASSED / POSTED' : 'PENDING'),
+        isCompleted: isParked || isPosted,
+        isCurrent: false,
+        isException: false,
+      },
+      {
+        num: 5,
+        title: 'ACCOUNTING DOCUMENT',
+        ref: accountingRef !== 'NOT CREATED' ? `Doc: ${accountingRef}` : 'Doc: Pending Posting',
+        details: isPosted ? `Financial Ledger Document (BELNR / MIRO) • Fiscal Year ${invoice.fiscalYear || '2026'}` : 'Requires owner validation and 3-Way LIV reconciliation',
+        statusText: isPosted ? 'POSTED' : 'PENDING',
+        isCompleted: isPosted,
+        isCurrent: false,
+        isException: false,
+      },
+      {
+        num: 6,
+        title: 'PAYMENT DOCUMENT',
+        ref: paymentRef !== 'NOT CREATED' ? `Doc: ${paymentRef}` : 'Doc: Pending Payment',
+        details: isPaid ? 'Disbursement executed via SAP FI-AP Automatic Payment Run (F110)' : (isPosted ? 'Open payable scheduled in BSIK ledger' : 'Payable generation pending S/4HANA posting'),
+        statusText: isPaid ? 'PAID' : (isPosted ? 'PAYMENT PENDING' : 'PENDING'),
+        isCompleted: isPaid,
+        isCurrent: false,
+        isException: false,
+      },
+      {
+        num: 7,
+        title: 'CLEARING DOCUMENT',
+        ref: clearingRef !== 'NOT CREATED' ? `Doc: ${clearingRef}` : 'Doc: Open Settlement',
+        details: isCleared ? 'Settlement cleared in SAP BSAK ledger • Open balance zeroed' : (isPaid ? 'Payment executed, awaiting general ledger bank reconciliation' : 'Settlement clearing pending payment run'),
+        statusText: isCleared ? 'CLEARED' : 'OPEN / PENDING',
+        isCompleted: isCleared,
+        isCurrent: false,
+        isException: false,
+      },
+    ];
+
+    // Determine current active node
     if (isCleared) {
-      activeStageIdx = 7;
+      timelineStages[6].isCurrent = true;
     } else if (isPaid) {
-      activeStageIdx = 7;
+      timelineStages[6].isCurrent = true;
     } else if (isPosted) {
-      activeStageIdx = 6;
-    } else if (isOwnerValidated || isParked) {
-      activeStageIdx = 5;
+      timelineStages[5].isCurrent = true;
+    } else if (isParked) {
+      timelineStages[4].isCurrent = true;
+    } else if (isOwnerValidated) {
+      timelineStages[3].isCurrent = true;
     } else {
-      activeStageIdx = 4;
+      timelineStages[2].isCurrent = true;
     }
 
     const documentChainHtml = `
-      <div class="sap-card" style="padding:16px 20px;">
-        <div class="sap-card-header" style="padding:0 0 12px 0;">
+      <div class="sap-card" style="padding:18px 24px;">
+        <div class="sap-card-header" style="padding:0 0 16px 0; border-bottom:1px solid var(--border-subtle); margin-bottom:16px;">
           <div>
-            <div class="sap-card-title">S/4HANA Procurement & Finance Settlement Chain</div>
-            <span class="sap-card-subtitle">Continuous audit-verified trace across ERP procurement, material movement, quality inspection, and financial clearing documents.</span>
+            <div class="sap-card-title" style="font-size:15px; font-weight:700;">S/4HANA Procurement & Finance Settlement Chain</div>
+            <span class="sap-card-subtitle">Continuous audit-verified vertical timeline across Purchase Order, Goods Receipt, Supplier Invoice, Parking, Posting, Payment, and Settlement Clearing.</span>
+          </div>
+          <div>
+            <span class="sap-badge ${isCleared ? 'sap-badge-success' : isPosted ? 'sap-badge-info' : 'sap-badge-neutral'}">
+              ${isCleared ? '✓ FULLY SETTLED' : isPosted ? '● POSTED IN SAP' : '○ IN PROCESS'}
+            </span>
           </div>
         </div>
-        <div class="doc-chain-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
-          ${docChain.map((node, idx) => {
-            const isCreated = node.referenceNumber !== 'NOT CREATED' && node.status !== 'NOT CREATED' && node.status !== 'NOT APPLICABLE';
-            const isCurrent = idx === activeStageIdx && !isCleared;
-            const isException = node.status.includes('REJECT') || node.status.includes('HOLD') || node.status.includes('MISMATCH');
 
-            let chipHtml = '';
-            if (isException) {
-              chipHtml = `<span class="sap-badge sap-badge-error" style="font-size:10px; padding:1px 6px;">⚠ EXCEPTION</span>`;
-            } else if (isCreated) {
-              chipHtml = `<span class="sap-badge sap-badge-success" style="font-size:10px; padding:1px 6px;">✓ COMPLETED</span>`;
-            } else if (isCurrent) {
-              chipHtml = `<span class="sap-badge sap-badge-info" style="font-size:10px; padding:1px 6px; font-weight:700;">● CURRENT STAGE</span>`;
-            } else {
-              chipHtml = `<span class="sap-badge sap-badge-neutral" style="font-size:10px; padding:1px 6px;">○ PENDING</span>`;
-            }
+        <div class="v-settlement-timeline">
+          ${timelineStages
+            .map((stg, idx) => {
+              const isLast = idx === timelineStages.length - 1;
+              let nodeClass = '';
+              let badgeHtml = '';
 
-            return `
-              <div style="border:${isCurrent ? '1.5px solid var(--brand-primary)' : isCreated ? '1px solid var(--border-main)' : '1px solid var(--border-subtle)'}; border-radius:var(--radius-card); padding:12px; background:${isCurrent ? 'rgba(0, 112, 242, 0.04)' : isCreated ? 'var(--surface-card)' : 'var(--surface-subtle)'}; opacity:${isCreated || isCurrent ? '1' : '0.65'}; transition:all 0.2s ease;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                  <span style="font-size:11px; font-weight:700; color:${isCurrent ? 'var(--brand-primary)' : 'var(--text-muted)'}; text-transform:uppercase;">${idx + 1}. ${node.label}</span>
-                  ${chipHtml}
+              if (stg.isException) {
+                nodeClass = 'node-exception';
+                badgeHtml = `<span class="sap-badge sap-badge-error" style="font-size:10px; padding:2px 8px; font-weight:700;">⚠ EXCEPTION</span>`;
+              } else if (stg.isCurrent) {
+                nodeClass = 'node-active';
+                badgeHtml = `<span class="sap-badge sap-badge-info" style="font-size:10px; padding:2px 8px; font-weight:700; background:var(--brand-primary); color:white;">● CURRENT</span>`;
+              } else if (stg.isCompleted) {
+                nodeClass = 'node-completed';
+                badgeHtml = `<span class="sap-badge sap-badge-success" style="font-size:10px; padding:2px 8px; font-weight:600;">✓ COMPLETED</span>`;
+              } else {
+                badgeHtml = `<span class="sap-badge sap-badge-neutral" style="font-size:10px; padding:2px 8px;">○ PENDING</span>`;
+              }
+
+              return `
+                <div class="v-timeline-node ${nodeClass}">
+                  <div class="v-timeline-rail">
+                    <div class="v-timeline-dot">
+                      ${stg.isCompleted ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>` : (stg.isCurrent ? '●' : stg.num)}
+                    </div>
+                    ${!isLast ? `<div class="v-timeline-line"></div>` : ''}
+                  </div>
+                  <div class="v-timeline-card">
+                    <div class="v-timeline-card-header">
+                      <span class="v-timeline-step-title">${stg.num}. ${stg.title}</span>
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="sap-badge ${stg.isCompleted ? 'sap-badge-success' : 'sap-badge-neutral'}" style="font-size:10px; font-family:var(--font-mono);">${stg.statusText}</span>
+                        ${badgeHtml}
+                      </div>
+                    </div>
+                    <div class="v-timeline-ref-text">
+                      ${stg.ref}
+                    </div>
+                    <div class="v-timeline-meta-text">
+                      ${stg.details}
+                    </div>
+                  </div>
                 </div>
-                <div style="font-size:13px; font-weight:700; color:${isCreated ? 'var(--text-primary)' : isCurrent ? 'var(--brand-primary)' : 'var(--text-muted)'}; font-family:monospace;">
-                  ${node.referenceNumber}
-                </div>
-                <div style="font-size:11px; color:var(--text-secondary); margin-top:4px;">
-                  Source: ${node.source}
-                </div>
-                ${node.timestamp ? `<div style="font-size:10px; color:var(--text-muted); margin-top:2px;">Date: ${node.timestamp.slice(0, 10)}</div>` : ''}
-              </div>
-            `;
-          }).join('')}
+              `;
+            })
+            .join('')}
         </div>
       </div>
     `;
@@ -1833,9 +1939,11 @@ class InvoiceDecisionApp {
     const sPrice = document.getElementById('sliderWhatIfPrice');
     const sQty = document.getElementById('sliderWhatIfQty');
     const sQM = document.getElementById('selectWhatIfQM');
+    const checkMinor = document.getElementById('checkWhatIfMinor');
     if (sPrice) sPrice.value = 5;
     if (sQty) sQty.value = 0;
     if (sQM) sQM.value = 'STRICT';
+    if (checkMinor) checkMinor.checked = false;
     this.simulationState = null;
     this.renderDecisionWorkspace();
     this.runWhatIfSimulation(true);
@@ -1845,6 +1953,7 @@ class InvoiceDecisionApp {
     const sPrice = document.getElementById('sliderWhatIfPrice');
     const sQty = document.getElementById('sliderWhatIfQty');
     const sQM = document.getElementById('selectWhatIfQM');
+    const checkMinor = document.getElementById('checkWhatIfMinor');
     const lPrice = document.getElementById('labelWhatIfPrice');
     const lQty = document.getElementById('labelWhatIfQty');
     const resultBox = document.getElementById('whatIfResultBox');
@@ -1854,6 +1963,7 @@ class InvoiceDecisionApp {
     const priceTol = parseFloat(sPrice.value);
     const qtyTol = parseFloat(sQty.value);
     const qmStrict = sQM.value;
+    const allowMinor = Boolean(checkMinor && checkMinor.checked);
 
     if (lPrice) lPrice.innerText = `${priceTol}%`;
     if (lQty) lQty.innerText = `${qtyTol}%`;
@@ -1870,39 +1980,48 @@ class InvoiceDecisionApp {
 
     // Check price tolerance impact
     if (reconciliation.priceVariancePercentage > 0) {
-      if (reconciliation.priceVariancePercentage <= priceTol) {
+      const isWithinTolerance = reconciliation.priceVariancePercentage <= priceTol || (allowMinor && reconciliation.priceVariancePercentage <= 3.0);
+      if (isWithinTolerance) {
         if (simRec === 'MANUAL_REVIEW') {
           simRec = 'AUTO_PROCEED';
           simConfidence = 96;
-          changeReason = `Price variance (+${reconciliation.priceVariancePercentage.toFixed(1)}%) now falls within relaxed tolerance limit (<= ${priceTol}%). Eligible for automatic MIRO posting.`;
+          changeReason = `Price variance (+${reconciliation.priceVariancePercentage.toFixed(1)}%) falls within permitted tolerance (<= ${allowMinor && reconciliation.priceVariancePercentage <= 3.0 ? '3% minor buffer' : priceTol + '%'}). Eligible for automatic MIRO posting.`;
         }
       } else {
-        if (simRec === 'AUTO_PROCEED') {
-          simRec = 'MANUAL_REVIEW';
-          simConfidence = 78;
-          changeReason = `Stricter price tolerance (${priceTol}%) flags variance (+${reconciliation.priceVariancePercentage.toFixed(1)}%) for review.`;
-        }
+        simRec = 'MANUAL_REVIEW';
+        simConfidence = 78;
+        changeReason = `Price variance (+${reconciliation.priceVariancePercentage.toFixed(1)}%) exceeds configured tolerance (${priceTol}%). High financial variance risk flags for review.`;
       }
     }
 
     // Check quantity over-delivery impact
     if (reconciliation.quantityStatus === 'OVER_DELIVERY') {
-      const overDelivPct = ((reconciliation.quantityInvoiced - reconciliation.quantityReceived) / reconciliation.quantityReceived) * 100;
+      const overDelivPct = reconciliation.quantityReceived > 0 ? ((reconciliation.quantityInvoiced - reconciliation.quantityReceived) / reconciliation.quantityReceived) * 100 : 0;
       if (overDelivPct <= qtyTol) {
         simRec = 'AUTO_PROCEED';
         simConfidence = 95;
         changeReason = `Over-delivery of +${overDelivPct.toFixed(1)}% falls within permitted buffer (<= ${qtyTol}%). Overridden to Auto-Proceed.`;
+      } else {
+        simRec = 'MANUAL_REVIEW';
+        simConfidence = 82;
+        changeReason = `Over-delivery of +${overDelivPct.toFixed(1)}% exceeds buffer limit (${qtyTol}%). Requires Manual Review.`;
       }
     }
 
     // Check QM strictness impact
-    if (reconciliation.qualityStatus === 'REJECTIONS_DETECTED' && qmStrict === 'CONDITIONAL') {
-      simRec = 'BUSINESS_VALIDATION_REQUIRED';
-      simConfidence = 84;
-      changeReason = `Quality defects permitted conditionally upon Requisitioner sign-off rather than strict Hold.`;
+    if (reconciliation.qualityStatus === 'REJECTIONS_DETECTED') {
+      if (qmStrict === 'CONDITIONAL') {
+        simRec = 'BUSINESS_VALIDATION_REQUIRED';
+        simConfidence = 84;
+        changeReason = `Quality defects permitted conditionally upon Requisitioner sign-off rather than strict Hold.`;
+      } else {
+        simRec = 'HOLD';
+        simConfidence = 95;
+        changeReason = `Zero-defects policy active: QM rejection lots place invoice on strict Hold.`;
+      }
     }
 
-    const isModified = (priceTol !== 5 || qtyTol !== 0 || qmStrict !== 'STRICT');
+    const isModified = (priceTol !== 5 || qtyTol !== 0 || qmStrict !== 'STRICT' || allowMinor);
     if (!isReset && isModified) {
       this.simulationState = {
         active: true,
@@ -1910,6 +2029,7 @@ class InvoiceDecisionApp {
         priceTol,
         qtyTol,
         qmStrict,
+        allowMinor,
         simRec,
         simConfidence,
         changeReason,
@@ -1930,7 +2050,7 @@ class InvoiceDecisionApp {
           <div style="margin-top:2px;">${this.getRecommendationBadge(simRec)} (${simConfidence}%)</div>
         </div>
       </div>
-      <div style="font-size:12px; color:var(--text-secondary); max-width:550px; line-height:1.4;">
+      <div style="font-size:12px; color:var(--text-secondary); max-width:650px; line-height:1.4;">
         <strong>Impact Analysis:</strong> ${changeReason}
       </div>
     `;
@@ -2860,35 +2980,38 @@ class InvoiceDecisionApp {
 
     const stagesConfig = {
       physical: [
-        { label: 'Reading high-res PDF scanned documents from gate scanner...', pct: 12, delayMs: 550 },
-        { label: 'Optical Character Recognition (OCR) extraction pipeline...', pct: 25, delayMs: 600 },
-        { label: 'Coordinate geometry & layout document segmentation...', pct: 38, delayMs: 550 },
-        { label: 'Header & line item entity extraction...', pct: 50, delayMs: 600 },
-        { label: 'S/4HANA Vendor master lookup (LFA1)...', pct: 63, delayMs: 550 },
-        { label: 'PO & Goods Receipt reference matching (EKKO/MSEG)...', pct: 75, delayMs: 600 },
-        { label: 'Tax & arithmetic total verification...', pct: 88, delayMs: 550 },
-        { label: `Ingesting ${count} canonical invoices to decision queue...`, pct: 96, delayMs: 600 },
+        { label: '1. SCANNER INITIALIZING — 6 physical documents detected', pct: 10, delayMs: 900 },
+        { label: '2. DOCUMENT CAPTURE — Processing document 1 of 6 (High-res optical sensor)...', pct: 20, delayMs: 950 },
+        { label: '3. OCR / DOCUMENT EXTRACTION — Processing document 2 of 6 (Layout & text extraction)...', pct: 30, delayMs: 1000 },
+        { label: '4. FIELD VALIDATION — Processing document 3 of 6 (Header, tax ID & line items)...', pct: 40, delayMs: 950 },
+        { label: '5. SUPPLIER MASTER LOOKUP — Processing document 4 of 6 (LFA1 Master in S/4HANA)...', pct: 50, delayMs: 950 },
+        { label: '6. SAP PO CONTEXT LOOKUP — Processing document 5 of 6 (EKKO/EKPO line matching)...', pct: 60, delayMs: 1000 },
+        { label: '7. GOODS RECEIPT CONTEXT — Processing document 6 of 6 (MSEG Material Movement 101)...', pct: 70, delayMs: 950 },
+        { label: '8. 3-WAY MATCH ANALYSIS — Reconciling quantities, unit prices, and tolerances...', pct: 80, delayMs: 1050 },
+        { label: '9. AI DECISION ANALYSIS — 14 heuristic checks & risk classification evaluated', pct: 90, delayMs: 1200, isAi: true },
+        { label: '10. INVOICE ROUTING — Ingesting 6 canonical invoices to decision queue...', pct: 96, delayMs: 850 },
       ],
       email: [
-        { label: 'Connecting to AP IMAP/Exchange mailbox...', pct: 11, delayMs: 500 },
-        { label: 'Parsing RFC 822 MIME message stream...', pct: 22, delayMs: 500 },
-        { label: 'Extracting vendor attachments & headers...', pct: 33, delayMs: 550 },
-        { label: 'Virus & security sandbox scanning...', pct: 44, delayMs: 500 },
-        { label: 'Document classification & text parsing...', pct: 55, delayMs: 550 },
-        { label: 'Vendor identity & domain verification...', pct: 66, delayMs: 500 },
-        { label: 'PO & line item correlation...', pct: 77, delayMs: 550 },
-        { label: 'Duplicate submission check (BSIK/BSAK)...', pct: 88, delayMs: 500 },
-        { label: `Ingesting ${count} canonical invoices to decision queue...`, pct: 96, delayMs: 550 },
+        { label: '1. Mailbox Connection — Connecting to AP IMAP/Exchange mailbox...', pct: 11, delayMs: 750 },
+        { label: '2. Email Received — Parsing RFC 822 MIME message stream...', pct: 22, delayMs: 800 },
+        { label: '3. SPF / DKIM Validation — Authenticating vendor cryptographic signatures...', pct: 33, delayMs: 800 },
+        { label: '4. Attachment Extraction — Extracting PDF/TIFF attachments...', pct: 44, delayMs: 850 },
+        { label: '5. Invoice Data Extraction — Parsing vendor layout & tax metadata...', pct: 55, delayMs: 850 },
+        { label: '6. SAP PO Context Lookup — Correlating Purchase Orders in S/4HANA...', pct: 66, delayMs: 850 },
+        { label: '7. Comparison — Reconciling unit prices and quantities against delivery records...', pct: 77, delayMs: 850 },
+        { label: '8. AI Analysis — Evaluating duplicate patterns and risk rating...', pct: 88, delayMs: 950, isAi: true },
+        { label: '9. Routing — Registering 6 canonical invoices in AP worklist...', pct: 96, delayMs: 750 },
       ],
       einvoice: [
-        { label: 'Polling Government IRP statutory gateway...', pct: 12, delayMs: 550 },
-        { label: 'Parsing NIC schema JSON payload...', pct: 25, delayMs: 600 },
-        { label: 'Cryptographic signature & 64-char IRN hash verification...', pct: 38, delayMs: 550 },
-        { label: 'GSTIN & Tax compliance cross-check...', pct: 50, delayMs: 600 },
-        { label: 'Vendor & buyer Master Data reconciliation...', pct: 63, delayMs: 550 },
-        { label: 'SAP Purchase Order binding...', pct: 75, delayMs: 600 },
-        { label: '3-Way tolerance matching...', pct: 88, delayMs: 550 },
-        { label: `Ingesting ${count} canonical invoices to decision queue...`, pct: 96, delayMs: 600 },
+        { label: '1. IRP Payload Received — Connecting to Government statutory gateway...', pct: 11, delayMs: 750 },
+        { label: '2. Payload Validation — Validating NIC GST schema & digital certificate...', pct: 22, delayMs: 800 },
+        { label: '3. IRN Extraction — Extracting 64-char IRN hash & signed QR code...', pct: 33, delayMs: 800 },
+        { label: '4. Invoice Data Extraction — Normalizing line items, HSN codes & GST rates...', pct: 44, delayMs: 850 },
+        { label: '5. SAP Context Lookup — Binding S/4HANA Purchase Orders & plant records...', pct: 55, delayMs: 850 },
+        { label: '6. GST / Statutory Checks — Cross-checking GSTR-2B Input Tax Credit ledger...', pct: 66, delayMs: 850 },
+        { label: '7. Comparison — Evaluating 3-Way LIV tolerance limits...', pct: 77, delayMs: 850 },
+        { label: '8. AI Analysis — Statutory verification & confidence assessment...', pct: 88, delayMs: 950, isAi: true },
+        { label: '9. Routing — Publishing 6 validated e-invoices to decision queue...', pct: 96, delayMs: 750 },
       ],
     };
 
@@ -2900,7 +3023,6 @@ class InvoiceDecisionApp {
       headers: { 'Content-Type': 'application/json' },
     });
 
-    // Animate stages smoothly over 4-4.5 seconds
     try {
       for (let i = 0; i < stages.length; i++) {
         const stage = stages[i];
@@ -2913,11 +3035,11 @@ class InvoiceDecisionApp {
       // Final completion stage (100%)
       const finalCount = res.count || count;
       const completionLabels = {
-        physical: `${finalCount} invoices captured successfully.`,
-        email: `${finalCount} email invoices ingested successfully.`,
-        einvoice: `${finalCount} e-invoices pushed successfully.`,
+        physical: `✓ ${finalCount} invoices processed`,
+        email: `✓ ${finalCount} email invoices processed`,
+        einvoice: `✓ ${finalCount} e-invoices processed`,
       };
-      const finalLabel = completionLabels[channel] || `${finalCount} invoices processed successfully.`;
+      const finalLabel = completionLabels[channel] || `✓ ${finalCount} invoices processed`;
 
       this.updateBatchModalComplete(finalLabel, stages);
       await new Promise((resolve) => setTimeout(resolve, 800));
@@ -3009,37 +3131,78 @@ class InvoiceDecisionApp {
     const fillEl = document.getElementById('batchProgressBarFill');
     const stageLabel = document.getElementById('batchCurrentStageLabel');
     const stagesList = document.getElementById('batchStagesList');
+    const detectedEl = document.getElementById('batchDetectedCount');
 
     if (pctBadge) pctBadge.textContent = `${pct}%`;
     if (pctText) pctText.textContent = `${pct}%`;
     if (fillEl) fillEl.style.width = `${pct}%`;
     if (stageLabel) stageLabel.textContent = label;
 
+    // Update detected counter text with current progress
+    if (detectedEl && allStages[currentIndex]) {
+      const currentStageObj = allStages[currentIndex];
+      if (currentStageObj.label.includes('Processing document')) {
+        const docMatch = currentStageObj.label.match(/Processing document \d of \d/);
+        if (docMatch) detectedEl.textContent = docMatch[0];
+      }
+    }
+
     if (stagesList) {
-      stagesList.innerHTML = allStages
-        .map((s, idx) => {
-          let statusIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>`;
-          let textColor = 'var(--text-muted)';
-          let fontWeight = '400';
+      const isCurrentAi = Boolean(allStages[currentIndex] && allStages[currentIndex].isAi);
 
-          if (idx < currentIndex) {
-            statusIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--status-positive)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
-            textColor = 'var(--text-primary)';
-            fontWeight = '500';
-          } else if (idx === currentIndex) {
-            statusIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--brand-primary)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>`;
-            textColor = 'var(--brand-primary)';
-            fontWeight = '700';
-          }
-
-          return `
-            <div style="display:flex; align-items:center; gap:8px; font-weight:${fontWeight}; color:${textColor};">
-              <span style="display:flex; align-items:center;">${statusIcon}</span>
-              <span>${s.label}</span>
+      let aiCardHtml = '';
+      if (isCurrentAi) {
+        aiCardHtml = `
+          <div style="margin-top:10px; padding:12px 14px; background:var(--surface-subtle); border:1px solid rgba(10, 110, 209, 0.25); border-radius:var(--radius-sm);">
+            <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--brand-primary); margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+              <span>AI DECISION ENGINE</span>
+              <span class="sap-badge sap-badge-success" style="font-size:10px;">96% CONFIDENCE</span>
             </div>
-          `;
-        })
-        .join('');
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:5px; font-size:11px; color:var(--text-secondary);">
+              <div>✓ Invoice fields extracted</div>
+              <div>✓ Supplier identified</div>
+              <div>✓ PO context retrieved</div>
+              <div>✓ GR context retrieved</div>
+              <div>✓ Quantity compared</div>
+              <div>✓ Price compared</div>
+              <div>✓ Duplicate pattern checked</div>
+              <div>✓ Tax/arithmetic checked</div>
+              <div>✓ Business rules evaluated</div>
+              <div>✓ AI recommendation generated</div>
+            </div>
+            <div style="margin-top:8px; padding-top:6px; border-top:1px solid var(--border-subtle); font-size:11px; display:flex; justify-content:space-between; align-items:center;">
+              <span><strong>RECOMMENDATION:</strong> <span style="color:#188038; font-weight:700;">AUTO-PROCEED</span></span>
+              <span style="color:var(--text-muted); font-size:10px;">Supplier, PO, quantity and price within rules</span>
+            </div>
+          </div>
+        `;
+      }
+
+      stagesList.innerHTML =
+        allStages
+          .map((s, idx) => {
+            let statusIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>`;
+            let textColor = 'var(--text-muted)';
+            let fontWeight = '400';
+
+            if (idx < currentIndex) {
+              statusIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--status-positive)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
+              textColor = 'var(--text-primary)';
+              fontWeight = '500';
+            } else if (idx === currentIndex) {
+              statusIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--brand-primary)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>`;
+              textColor = 'var(--brand-primary)';
+              fontWeight = '700';
+            }
+
+            return `
+              <div style="display:flex; align-items:center; gap:8px; font-weight:${fontWeight}; color:${textColor};">
+                <span style="display:flex; align-items:center;">${statusIcon}</span>
+                <span>${s.label}</span>
+              </div>
+            `;
+          })
+          .join('') + aiCardHtml;
     }
   }
 
@@ -3064,15 +3227,17 @@ class InvoiceDecisionApp {
     if (detectedEl) detectedEl.textContent = completionLabel;
 
     if (stagesList) {
-      stagesList.innerHTML = allStages
-        .map((s) => `
-          <div style="display:flex; align-items:center; gap:8px; font-weight:500; color:var(--text-primary);">
-            <span style="display:flex; align-items:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--status-positive)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></span>
-            <span>${s.label}</span>
-          </div>
-        `)
-        .join('') + `
-          <div style="display:flex; align-items:center; gap:8px; font-weight:700; color:var(--status-positive); margin-top:4px;">
+      stagesList.innerHTML =
+        allStages
+          .map((s) => `
+            <div style="display:flex; align-items:center; gap:8px; font-weight:500; color:var(--text-primary);">
+              <span style="display:flex; align-items:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--status-positive)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></span>
+              <span>${s.label}</span>
+            </div>
+          `)
+          .join('') +
+        `
+          <div style="display:flex; align-items:center; gap:8px; font-weight:700; color:var(--status-positive); margin-top:8px; padding-top:6px; border-top:1px solid var(--border-subtle);">
             <span style="display:flex; align-items:center;">${ICONS.checkCircle}</span>
             <span>${completionLabel}</span>
           </div>
@@ -3218,15 +3383,19 @@ class InvoiceDecisionApp {
     try {
       const res = await this.runERPOperation(
         {
-          title: 'SAP S/4HANA Logistics Invoice Verification (MIRO)',
-          subtitle: `Posting Invoice ${invoiceId} to Financial Ledger`,
+          title: 'PREPARING INVOICE POSTING',
+          subtitle: `Posting Invoice ${invoiceId} to SAP S/4HANA (MIRO)`,
           stages: [
-            { label: 'Verifying General Ledger (FAGLFLEXA) & Cost Center accounts...', pct: 25, delayMs: 400 },
-            { label: 'Checking tax code & financial period for Company Code 1010...', pct: 50, delayMs: 400 },
-            { label: 'Executing SAP S/4HANA MIRO logistics invoice verification...', pct: 75, delayMs: 450 },
-            { label: 'Generating Accounting Document BELNR & open item in BSIK...', pct: 95, delayMs: 400 },
+            { label: 'Loading parked invoice...', pct: 15, delayMs: 400 },
+            { label: 'Validating supplier...', pct: 30, delayMs: 400 },
+            { label: 'Validating PO reference...', pct: 45, delayMs: 450 },
+            { label: 'Checking posting prerequisites...', pct: 60, delayMs: 400 },
+            { label: 'Preparing accounting document...', pct: 75, delayMs: 450 },
+            { label: 'Posting supplier invoice...', pct: 88, delayMs: 450 },
+            { label: 'Updating invoice lifecycle...', pct: 95, delayMs: 400 },
+            { label: 'Recording audit event...', pct: 98, delayMs: 350 },
           ],
-          completionLabel: 'Posted to S/4HANA (MIRO) — BELNR Generated',
+          completionLabel: 'INVOICE POSTED',
         },
         () =>
           safeFetchJson(`/api/invoices/${invoiceId}/post`, {
@@ -3247,20 +3416,23 @@ class InvoiceDecisionApp {
   }
 
   async parkInSAP(invoiceId) {
-    const reason = prompt('Enter parking reason for S/4HANA document (MIR7):', 'Held for exception review with Procurement');
-    if (!reason) return;
+    const reason = 'Preliminary Document Parked for Exception Review';
 
     try {
       const res = await this.runERPOperation(
         {
-          title: 'SAP S/4HANA Invoice Parking (MIR7)',
-          subtitle: `Recording Preliminary Document for ${invoiceId}`,
+          title: 'PARKING INVOICE...',
+          subtitle: `Recording Preliminary Document (MIR7) for ${invoiceId}`,
           stages: [
-            { label: 'Validating S/4HANA MM Preliminary Document structure...', pct: 30, delayMs: 350 },
-            { label: 'Setting Payment Block "R" (Invoice Verification Block)...', pct: 65, delayMs: 400 },
-            { label: 'Registering parked preliminary document in MM ledger...', pct: 95, delayMs: 350 },
+            { label: 'Validating invoice state...', pct: 18, delayMs: 380 },
+            { label: 'Checking PO reference...', pct: 35, delayMs: 380 },
+            { label: 'Checking duplicate status...', pct: 52, delayMs: 400 },
+            { label: 'Checking posting prerequisites...', pct: 68, delayMs: 400 },
+            { label: 'Preparing parked invoice...', pct: 82, delayMs: 420 },
+            { label: 'Updating workflow state...', pct: 92, delayMs: 380 },
+            { label: 'Recording audit event...', pct: 98, delayMs: 350 },
           ],
-          completionLabel: 'Invoice Parked in SAP S/4HANA (MIR7)',
+          completionLabel: 'INVOICE PARKED',
         },
         () =>
           safeFetchJson(`/api/invoices/${invoiceId}/park`, {
@@ -3284,15 +3456,16 @@ class InvoiceDecisionApp {
     try {
       const res = await this.runERPOperation(
         {
-          title: 'SAP FI-AP Automatic Payment Run (F110)',
-          subtitle: `Disbursement Execution for Invoice ${invoiceId}`,
+          title: 'PREPARING PAYMENT',
+          subtitle: `Executing AP Payment Run (F110) for ${invoiceId}`,
           stages: [
-            { label: 'Initiating SAP F110 Automatic Payment Program...', pct: 25, delayMs: 400 },
-            { label: 'Evaluating open items in BSIK & vendor payment terms...', pct: 50, delayMs: 400 },
-            { label: 'Generating Electronic Bank Transfer / Clearing Advice...', pct: 75, delayMs: 450 },
-            { label: 'Registering Payment Document in SAP FI-AP ledger...', pct: 95, delayMs: 400 },
+            { label: 'Checking open item...', pct: 20, delayMs: 380 },
+            { label: 'Checking payment eligibility...', pct: 40, delayMs: 400 },
+            { label: 'Creating payment reference...', pct: 65, delayMs: 420 },
+            { label: 'Updating payment status...', pct: 85, delayMs: 400 },
+            { label: 'Recording audit event...', pct: 98, delayMs: 350 },
           ],
-          completionLabel: 'Payment Run Executed — Payment Document Generated',
+          completionLabel: 'PAYMENT COMPLETED',
         },
         () =>
           safeFetchJson(`/api/invoices/${invoiceId}/payment/process`, {
@@ -3318,14 +3491,16 @@ class InvoiceDecisionApp {
     try {
       const res = await this.runERPOperation(
         {
-          title: 'SAP FI-AP Settlement Clearing (BSAK)',
-          subtitle: `Open Item Clearing for Invoice ${invoiceId}`,
+          title: 'PREPARING CLEARING',
+          subtitle: `Settlement Open Item Clearing (BSAK) for ${invoiceId}`,
           stages: [
-            { label: 'Connecting to SAP FI-AP Settlement Engine...', pct: 30, delayMs: 350 },
-            { label: 'Matching vendor open items in BSIK ledger...', pct: 60, delayMs: 400 },
-            { label: 'Transferring open items to BSAK Cleared Items Ledger...', pct: 95, delayMs: 400 },
+            { label: 'Finding open accounting item...', pct: 20, delayMs: 380 },
+            { label: 'Matching payment...', pct: 45, delayMs: 400 },
+            { label: 'Creating clearing document...', pct: 70, delayMs: 420 },
+            { label: 'Updating settlement state...', pct: 88, delayMs: 400 },
+            { label: 'Recording audit event...', pct: 98, delayMs: 350 },
           ],
-          completionLabel: 'Settlement Cleared in SAP S/4HANA (BSAK)',
+          completionLabel: 'INVOICE CLEARED',
         },
         () =>
           safeFetchJson(`/api/invoices/${invoiceId}/payment/clear`, {
@@ -3478,22 +3653,37 @@ class InvoiceDecisionApp {
     }
   }
 
-  async resetDemoData() {
-    if (!confirm('Reset all 10 enterprise demo scenarios and GSTR-2B datasets to factory baseline state?')) return;
+  resetDemoData() {
+    this.openResetConfirmModal();
+  }
+
+  openResetConfirmModal() {
+    const modal = document.getElementById('modalResetDemoConfirm');
+    if (modal) modal.style.display = 'flex';
+  }
+
+  closeResetConfirmModal() {
+    const modal = document.getElementById('modalResetDemoConfirm');
+    if (modal) modal.style.display = 'none';
+  }
+
+  async confirmResetDemoData() {
+    this.closeResetConfirmModal();
     try {
       await this.runERPOperation(
         {
-          title: 'Resetting Enterprise Demo Environment',
+          title: 'RESETTING DEMO ENVIRONMENT',
           subtitle: 'Restoring Baseline Datasets & S/4HANA Linkages',
           stages: [
-            { label: 'Purging runtime in-memory invoice states & transaction cache...', pct: 18, delayMs: 300 },
-            { label: 'Resetting batch ingestion channel intake flags (Physical, Email, E-Invoice)...', pct: 36, delayMs: 350 },
-            { label: 'Re-initializing canonical invoice repository from baseline fixtures...', pct: 54, delayMs: 400 },
-            { label: 'Restoring S/4HANA PO & Goods Receipt linkages (EKKO, EKPO, MSEG)...', pct: 72, delayMs: 350 },
-            { label: 'Resetting statutory GSTR-2B Input Tax Credit ledger records...', pct: 88, delayMs: 300 },
-            { label: 'Re-establishing baseline audit trail events & clearing decision locks...', pct: 96, delayMs: 300 },
+            { label: 'Clearing runtime invoice states...', pct: 15, delayMs: 400 },
+            { label: 'Clearing workflow decisions...', pct: 30, delayMs: 450 },
+            { label: 'Clearing temporary events...', pct: 45, delayMs: 450 },
+            { label: 'Resetting AI decisions...', pct: 60, delayMs: 450 },
+            { label: 'Resetting counters...', pct: 75, delayMs: 400 },
+            { label: 'Resetting ingestion state...', pct: 90, delayMs: 450 },
+            { label: 'Restoring demo baseline...', pct: 98, delayMs: 450 },
           ],
-          completionLabel: 'DEMO ENVIRONMENT READY — Baseline Restored',
+          completionLabel: 'DEMO ENVIRONMENT READY',
         },
         () => fetch('/api/reset', { method: 'POST' })
       );
@@ -3504,7 +3694,7 @@ class InvoiceDecisionApp {
         einvoice: { processed: false, count: 6, activeCount: 6 },
       };
       this.simulationState = null;
-      this.showToast('All scenarios reset to baseline state', 'success');
+      this.showToast('Demo environment reset to baseline state', 'success');
       this.selectedInvoiceId = 'INV-2026-00001';
       await this.loadAllData();
       this.renderCurrentView();
@@ -3866,6 +4056,476 @@ Tel: +91 22 6790 0000 | Email: ${meta.emailSender || 'billing@vendor.com'}
       toast.style.transition = 'opacity 0.2s ease';
       setTimeout(() => toast.remove(), 200);
     }, 4000);
+  }
+
+  // --------------------------------------------------------------------------
+  // JOULE-STYLE CONTEXTUAL AI INVOICE ASSISTANT
+  // --------------------------------------------------------------------------
+  toggleJouleDrawer() {
+    const drawer = document.getElementById('jouleDrawer');
+    if (!drawer) return;
+    if (drawer.classList.contains('open')) {
+      this.closeJouleDrawer();
+    } else {
+      this.openJouleDrawer();
+    }
+  }
+
+  openJouleDrawer() {
+    const drawer = document.getElementById('jouleDrawer');
+    if (!drawer) return;
+
+    const item = this.invoices.find((i) => i.invoice.invoiceId === this.selectedInvoiceId);
+    if (!item) {
+      this.showToast('No active invoice selected for Joule Assistant.', 'info');
+      return;
+    }
+
+    const { invoice, aiDecision } = item;
+
+    // Render Dynamic Context Header
+    const contextBar = document.getElementById('jouleContextBar');
+    if (contextBar) {
+      contextBar.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span><strong>Invoice:</strong> <code style="font-weight:700; color:var(--brand-primary);">${invoice.invoiceId}</code> (${invoice.invoiceNumber})</span>
+          <span>${this.getProcessingStatusBadge(invoice.processingStatus)}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; color:var(--text-secondary); margin-top:3px;">
+          <span><strong>Supplier:</strong> ${invoice.supplierName.slice(0, 24)}</span>
+          <span><strong>Gross:</strong> ₹${(invoice.totalGrossAmount || 0).toLocaleString('en-IN')}</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; margin-top:5px; padding-top:4px; border-top:1px dashed var(--border-subtle);">
+          <span style="font-weight:600; color:var(--text-muted);">AI Evaluation:</span>
+          ${this.getRecommendationBadge(aiDecision.recommendation)}
+          <span style="font-weight:600; color:var(--text-primary); font-size:11px;">(${aiDecision.confidenceScore}%)</span>
+        </div>
+      `;
+    }
+
+    // Populate Predefined Question Chips (15 predefined inquiries from specification)
+    const chipsWrap = document.getElementById('jouleQuestionChips');
+    if (chipsWrap) {
+      const predefinedQuestions = [
+        'What is the invoice status?',
+        'Summarize this invoice',
+        'Why was this invoice flagged?',
+        'Compare this invoice with the PO',
+        'Show quantity variance',
+        'Show price variance',
+        'Who validated this invoice?',
+        'What is the payment status?',
+        'What should I do next?',
+        'Show the document reference chain',
+        'Has this invoice been posted?',
+        'Has payment been completed?',
+        'What exceptions exist?',
+        'Show the AI recommendation',
+        'Show PO and GR details',
+      ];
+
+      chipsWrap.innerHTML = predefinedQuestions
+        .map(
+          (q) => `
+            <button class="joule-chip-btn" onclick="app.askJoule('${q.replace(/'/g, "\\'")}')">
+              <span>${q}</span>
+            </button>
+          `
+        )
+        .join('');
+    }
+
+    // Initialize messages body with welcome greeting if empty or switched
+    const msgBody = document.getElementById('jouleMessagesBody');
+    if (msgBody && (!msgBody.dataset.activeInvoice || msgBody.dataset.activeInvoice !== invoice.invoiceId)) {
+      msgBody.dataset.activeInvoice = invoice.invoiceId;
+      msgBody.innerHTML = `
+        <div class="joule-chat-bubble-bot">
+          <div class="joule-bot-header">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <span>Joule Enterprise Assistant</span>
+          </div>
+          <div>
+            Hello! I am your contextual assistant for invoice decision intelligence. I have active context for invoice <strong>${invoice.invoiceId}</strong> (${invoice.invoiceNumber}) from <strong>${invoice.supplierName}</strong>.
+          </div>
+          <div style="margin-top:6px; color:var(--text-secondary); font-size:11px;">
+            Click any inquiry chip below or type a question to inspect 3-way matching, approval trace, payment settlement, or next actions.
+          </div>
+        </div>
+      `;
+    }
+
+    drawer.classList.add('open');
+  }
+
+  closeJouleDrawer() {
+    const drawer = document.getElementById('jouleDrawer');
+    if (drawer) drawer.classList.remove('open');
+  }
+
+  askJoule(questionText) {
+    const msgBody = document.getElementById('jouleMessagesBody');
+    if (!msgBody) return;
+
+    const item = this.invoices.find((i) => i.invoice.invoiceId === this.selectedInvoiceId);
+    if (!item) return;
+
+    // 1. Append User Message
+    const userBubble = document.createElement('div');
+    userBubble.className = 'joule-chat-bubble-user';
+    userBubble.textContent = questionText;
+    msgBody.appendChild(userBubble);
+
+    // 2. Resolve Deterministic Contextual Answer
+    const answerHtml = this.resolveJouleAnswer(questionText, item);
+
+    // 3. Append Bot Response Card
+    const botBubble = document.createElement('div');
+    botBubble.className = 'joule-chat-bubble-bot';
+    botBubble.innerHTML = `
+      <div class="joule-bot-header">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <span>Joule Response</span>
+      </div>
+      ${answerHtml}
+    `;
+    msgBody.appendChild(botBubble);
+
+    // Scroll to bottom
+    msgBody.scrollTop = msgBody.scrollHeight;
+  }
+
+  askJouleCustom() {
+    const input = document.getElementById('jouleInputQuery');
+    if (!input) return;
+    const q = input.value.trim();
+    if (!q) return;
+    input.value = '';
+    this.askJoule(q);
+  }
+
+  resolveJouleAnswer(rawQuery, item) {
+    const { invoice, purchaseOrder, reconciliation, aiDecision, businessOwner, businessOwnerDecision, slaRecord } = item;
+    const q = rawQuery.toLowerCase();
+
+    const isOwnerValidated = Boolean(businessOwnerDecision && businessOwnerDecision.action === 'ACCEPT');
+    const isOwnerRejected = Boolean(businessOwnerDecision && businessOwnerDecision.action === 'REJECT');
+    const isParked = invoice.postingStatus === 'PARKED' || invoice.processingStatus === 'PARKED_IN_SAP';
+    const isPosted = invoice.postingStatus === 'POSTED' || invoice.processingStatus === 'POSTED_TO_SAP' || Boolean(invoice.accountingDocumentNumber);
+    const isPaid = invoice.paymentStatus === 'PAID' || invoice.clearingStatus === 'CLEARED' || Boolean(invoice.paymentDocumentNumber);
+    const isCleared = invoice.clearingStatus === 'CLEARED' || Boolean(invoice.clearingDocumentNumber);
+
+    // 1. Payment Status
+    if (q.includes('payment') || q.includes('paid') || q.includes('f110') || q.includes('clearing') || q.includes('cleared')) {
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">PAYMENT STATUS & SETTLEMENT</div>
+          <div><strong>Invoice ID:</strong> <code>${invoice.invoiceId}</code></div>
+          <div style="margin-top:2px;"><strong>Posting:</strong> ${isPosted ? `<span style="color:#188038; font-weight:600;">POSTED (Doc ${invoice.accountingDocumentNumber || '5100001234'})</span>` : '<span style="color:var(--text-muted);">NOT POSTED</span>'}</div>
+          <div style="margin-top:2px;"><strong>Disbursement:</strong> ${isPaid ? `<span style="color:#188038; font-weight:600;">PAID (Ref ${invoice.paymentDocumentNumber || '2000012345'})</span>` : (isPosted ? '<span style="color:#B45309; font-weight:600;">PAYMENT PENDING (F110)</span>' : '<span style="color:var(--text-muted);">NOT DUE</span>')}</div>
+          <div style="margin-top:2px;"><strong>Settlement Clearing:</strong> ${isCleared ? `<span style="color:#188038; font-weight:600;">CLEARED (BSAK ${invoice.clearingDocumentNumber || '2000012346'})</span>` : '<span style="color:var(--text-muted);">OPEN / UNCLEARED</span>'}</div>
+          <div style="margin-top:6px; padding-top:6px; border-top:1px solid var(--border-subtle); color:var(--text-secondary); font-size:11px;">
+            <strong>Next Step:</strong> ${isCleared ? 'Invoice settlement is fully finalized.' : isPaid ? 'Ready for BSAK settlement clearing.' : isPosted ? 'Payment run (F110) scheduled.' : 'Requires S/4HANA invoice posting first.'}
+          </div>
+        </div>
+      `;
+    }
+
+    // 2. Summary
+    if (q.includes('summarize') || q.includes('summary') || q.includes('overview') || q.includes('about')) {
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">INVOICE COMMERCIAL SUMMARY</div>
+          <div style="display:grid; grid-template-columns:100px 1fr; gap:3px; font-size:11px;">
+            <span><strong>Invoice ID:</strong></span><span><code>${invoice.invoiceId}</code> (${invoice.invoiceNumber})</span>
+            <span><strong>Supplier:</strong></span><span>${invoice.supplierName}</span>
+            <span><strong>Amount:</strong></span><span><strong>₹${(invoice.totalGrossAmount || 0).toLocaleString('en-IN')}</strong> (Net: ₹${(invoice.netAmount || 0).toLocaleString('en-IN')})</span>
+            <span><strong>PO Ref:</strong></span><span>${purchaseOrder ? purchaseOrder.poNumber : 'Non-PO Route'}</span>
+            <span><strong>Status:</strong></span><span>${this.getProcessingStatusBadge(invoice.processingStatus)}</span>
+            <span><strong>AI Policy:</strong></span><span>${this.getRecommendationBadge(aiDecision.recommendation)} (${aiDecision.confidenceScore}%)</span>
+            <span><strong>Risk Level:</strong></span><span>${this.getRiskBadge(aiDecision.riskLevel)}</span>
+          </div>
+          <div style="margin-top:6px; padding-top:6px; border-top:1px solid var(--border-subtle); font-size:11px; color:var(--text-secondary);">
+            <strong>Next Action:</strong> ${aiDecision.explanation.suggestedAction}
+          </div>
+        </div>
+      `;
+    }
+
+    // 3. Next Action / What should I do next?
+    if (q.includes('next') || q.includes('action') || q.includes('do next') || q.includes('should i do')) {
+      let nextStepTitle = '';
+      let nextStepDesc = '';
+      if (isCleared) {
+        nextStepTitle = '✓ LIFECYCLE COMPLETED';
+        nextStepDesc = 'All open items are reconciled and cleared in SAP BSAK ledger. No operational action required.';
+      } else if (isPaid) {
+        nextStepTitle = 'CLEAR SETTLEMENT (BSAK)';
+        nextStepDesc = 'Payment run has disbursed funds. Execute final settlement clearing in SAP FI-AP to balance open items.';
+      } else if (isPosted) {
+        nextStepTitle = 'EXECUTE AP PAYMENT RUN (F110)';
+        nextStepDesc = 'Invoice is posted to financial ledger (BELNR). Trigger disbursement via Automatic Payment Program.';
+      } else if (isParked) {
+        nextStepTitle = 'POST TO S/4HANA (MIRO)';
+        nextStepDesc = 'Invoice is parked with Payment Block R. Complete final Logistics Invoice Verification to generate financial document.';
+      } else if (isOwnerValidated) {
+        nextStepTitle = 'PARK OR POST TO S/4HANA';
+        nextStepDesc = 'Business Owner verification has been completed. Invoice is unlocked for parking (MIR7) or direct posting (MIRO).';
+      } else if (aiDecision.recommendation === 'HOLD' || aiDecision.recommendation === 'POTENTIAL_DUPLICATE') {
+        nextStepTitle = 'RESOLVE EXCEPTION BLOCK';
+        nextStepDesc = `Posting is locked. Resolve exception: ${aiDecision.explanation.whyRecommended[0] || 'active defect blocker'}.`;
+      } else if (aiDecision.recommendation === 'BUSINESS_VALIDATION_REQUIRED' || aiDecision.recommendation === 'MANUAL_REVIEW') {
+        nextStepTitle = 'VALIDATE AS OWNER';
+        nextStepDesc = `Awaiting commercial sign-off from requisitioner ${businessOwner.name} (${businessOwner.department}).`;
+      } else {
+        nextStepTitle = 'POST TO S/4HANA (MIRO)';
+        nextStepDesc = 'All 3-way match parameters satisfy enterprise clean-core policies. Eligible for posting.';
+      }
+
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">RECOMMENDED NEXT WORKFLOW STEP</div>
+          <div style="font-size:13px; font-weight:700; color:var(--brand-primary);">${nextStepTitle}</div>
+          <div style="font-size:11px; color:var(--text-secondary); margin-top:4px; line-height:1.4;">${nextStepDesc}</div>
+          <div style="margin-top:6px; font-size:10px; color:var(--text-muted);">Assigned User: ${businessOwner.name} &bull; Dept: ${businessOwner.department}</div>
+        </div>
+      `;
+    }
+
+    // 4. Compare with PO
+    if (q.includes('compare') || q.includes('comparison') || (q.includes('po') && q.includes('invoice'))) {
+      const isVendorMatch = reconciliation.vendorMatched;
+      const isPoMatch = reconciliation.poNumberMatched;
+      const isQtyMatch = reconciliation.quantityStatus === 'EXACT_MATCH';
+      const isPriceMatch = reconciliation.priceStatus === 'EXACT_MATCH';
+
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">SIDE-BY-SIDE PO RECONCILIATION</div>
+          <table class="joule-comparison-table">
+            <thead>
+              <tr>
+                <th>Check Parameter</th>
+                <th>Invoice Billed</th>
+                <th>SAP PO (Expected)</th>
+                <th>Match</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Supplier</td>
+                <td>${invoice.supplierName.slice(0, 14)}</td>
+                <td>${purchaseOrder ? purchaseOrder.supplierName.slice(0, 14) : 'Non-PO'}</td>
+                <td>${isVendorMatch ? '<span style="color:#188038;">✓ MATCH</span>' : '<span style="color:#D9381E;">⚠ MISMATCH</span>'}</td>
+              </tr>
+              <tr>
+                <td>PO Number</td>
+                <td>${invoice.purchaseOrderReference || 'None'}</td>
+                <td>${purchaseOrder ? purchaseOrder.poNumber : 'N/A'}</td>
+                <td>${isPoMatch ? '<span style="color:#188038;">✓ MATCH</span>' : '<span style="color:#B45309;">⚠ NON-PO</span>'}</td>
+              </tr>
+              <tr>
+                <td>Quantity</td>
+                <td>${reconciliation.quantityInvoiced} EA</td>
+                <td>${reconciliation.quantityOrdered} EA</td>
+                <td>${isQtyMatch ? '<span style="color:#188038;">✓ MATCH</span>' : '<span style="color:#B45309;">⚠ VARIANCE</span>'}</td>
+              </tr>
+              <tr>
+                <td>Net Total</td>
+                <td>₹${reconciliation.invoicedTotalNet.toLocaleString('en-IN')}</td>
+                <td>₹${reconciliation.poTotalNet.toLocaleString('en-IN')}</td>
+                <td>${isPriceMatch ? '<span style="color:#188038;">✓ MATCH</span>' : '<span style="color:#B45309;">⚠ ' + reconciliation.priceVariancePercentage.toFixed(1) + '% VAR</span>'}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="margin-top:6px; font-size:11px; font-weight:600; color:${reconciliation.overallStatus === 'RECONCILED' ? '#188038' : '#B45309'};">
+            Overall Reconciliation: ${reconciliation.overallStatus === 'RECONCILED' ? '✓ FULLY MATCHED' : '⚠ DISCREPANCY DETECTED'}
+          </div>
+        </div>
+      `;
+    }
+
+    // 5. Quantity Variance
+    if (q.includes('quantity') || q.includes('over-delivery') || q.includes('units')) {
+      const isQtyMatch = reconciliation.quantityStatus === 'EXACT_MATCH';
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">QUANTITY DELIVERY RECONCILIATION</div>
+          <div style="display:grid; grid-template-columns:110px 1fr; gap:3px; font-size:11px;">
+            <span><strong>Invoiced:</strong></span><span>${reconciliation.quantityInvoiced} EA</span>
+            <span><strong>Ordered (PO):</strong></span><span>${reconciliation.quantityOrdered} EA</span>
+            <span><strong>Received (GR):</strong></span><span>${reconciliation.quantityReceived} EA (MSEG Plant 1010)</span>
+            <span><strong>Status:</strong></span><span>${reconciliation.quantityStatus}</span>
+          </div>
+          <div style="margin-top:6px; padding-top:6px; border-top:1px solid var(--border-subtle); font-size:11px; color:var(--text-secondary);">
+            ${isQtyMatch ? '✓ Exact warehouse receipt confirmed. Billed units match delivered units.' : '⚠ Over-delivery detected: Invoiced quantity exceeds physical warehouse goods receipt.'}
+          </div>
+        </div>
+      `;
+    }
+
+    // 6. Price Variance
+    if (q.includes('price') || q.includes('tolerance pp') || q.includes('unit price')) {
+      const isPriceMatch = reconciliation.priceStatus === 'EXACT_MATCH';
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">PRICE VARIANCE & TOLERANCE PP</div>
+          <div style="display:grid; grid-template-columns:120px 1fr; gap:3px; font-size:11px;">
+            <span><strong>Invoice Net:</strong></span><span>₹${reconciliation.invoicedTotalNet.toLocaleString('en-IN')}</span>
+            <span><strong>PO Expected Net:</strong></span><span>₹${reconciliation.poTotalNet.toLocaleString('en-IN')}</span>
+            <span><strong>Price Variance:</strong></span><span>${reconciliation.priceVariancePercentage > 0 ? '+' : ''}${reconciliation.priceVariancePercentage.toFixed(1)}%</span>
+            <span><strong>SAP Limit (PP):</strong></span><span>5.0% Standard Tolerance</span>
+          </div>
+          <div style="margin-top:6px; padding-top:6px; border-top:1px solid var(--border-subtle); font-size:11px; color:var(--text-secondary);">
+            ${isPriceMatch ? '✓ Unit price matches SAP Purchase Order baseline exactly.' : (reconciliation.priceVariancePercentage <= 5 ? '✓ Variance within standard SAP LIV Tolerance Key PP limit.' : '⚠ Price variance exceeds configured tolerance limit. Financial review required.')}
+          </div>
+        </div>
+      `;
+    }
+
+    // 7. Who validated?
+    if (q.includes('validated') || q.includes('owner') || q.includes('sign-off') || q.includes('who')) {
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">BUSINESS OWNER VALIDATION STATUS</div>
+          <div style="display:grid; grid-template-columns:110px 1fr; gap:3px; font-size:11px;">
+            <span><strong>Assigned Owner:</strong></span><span>${businessOwner.name} (${businessOwner.role})</span>
+            <span><strong>Department:</strong></span><span>${businessOwner.department} (Cost Center ${businessOwner.costCenter})</span>
+            <span><strong>Validation State:</strong></span><span>${isOwnerValidated ? '<span style="color:#188038; font-weight:600;">✓ VALIDATED / ACCEPTED</span>' : (isOwnerRejected ? '<span style="color:#D9381E; font-weight:600;">REJECTED / DISPUTED</span>' : '<span style="color:#B45309; font-weight:600;">PENDING VALIDATION</span>')}</span>
+            ${businessOwnerDecision ? `<span><strong>Decision Date:</strong></span><span>${businessOwnerDecision.timestamp.replace('T', ' ').slice(0, 16)}</span>` : ''}
+            ${businessOwnerDecision ? `<span><strong>Owner Reason:</strong></span><span>${businessOwnerDecision.reason}</span>` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    // 8. Why Flagged?
+    if (q.includes('why') || q.includes('flagged') || q.includes('reason') || q.includes('hold')) {
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">AI EVALUATION RATIONALE</div>
+          <div style="font-size:11px; margin-bottom:6px;">
+            <strong>Decision:</strong> ${this.getRecommendationBadge(aiDecision.recommendation)} &bull; Risk: ${this.getRiskBadge(aiDecision.riskLevel)}
+          </div>
+          <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;">
+            ${aiDecision.explanation.whyRecommended.map((r) => `<div>&bull; ${r}</div>`).join('')}
+          </div>
+          <div style="margin-top:6px; padding-top:6px; border-top:1px solid var(--border-subtle); font-size:11px;">
+            <strong>Recommended Action:</strong> ${aiDecision.explanation.suggestedAction}
+          </div>
+        </div>
+      `;
+    }
+
+    // 9. Document Reference Chain
+    if (q.includes('chain') || q.includes('references') || q.includes('documents') || q.includes('trace')) {
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">S/4HANA DOCUMENT REFERENCE TRACE</div>
+          <div style="display:flex; flex-direction:column; gap:4px; font-size:11px;">
+            <div>1. <strong>PO:</strong> <code>${purchaseOrder ? purchaseOrder.poNumber : 'Non-PO'}</code></div>
+            <div>2. <strong>Goods Receipt (MSEG):</strong> <code>${reconciliation.quantityReceived > 0 ? '5000018901' : 'None'}</code></div>
+            <div>3. <strong>Invoice:</strong> <code>${invoice.invoiceId}</code> (${invoice.invoiceNumber})</div>
+            <div>4. <strong>Parked Doc (MIR7):</strong> <code>${invoice.parkedDocumentNumber || (isParked ? '5105600121' : 'Not Created')}</code></div>
+            <div>5. <strong>Accounting Doc (BELNR):</strong> <code>${invoice.accountingDocumentNumber || (isPosted ? '5100001234' : 'Not Created')}</code></div>
+            <div>6. <strong>Payment Doc (F110):</strong> <code>${invoice.paymentDocumentNumber || (isPaid ? '2000012345' : 'Not Created')}</code></div>
+            <div>7. <strong>Clearing Doc (BSAK):</strong> <code>${invoice.clearingDocumentNumber || (isCleared ? '2000012346' : 'Not Created')}</code></div>
+          </div>
+        </div>
+      `;
+    }
+
+    // 10. Has this invoice been posted?
+    if (q.includes('posted') || q.includes('post') || q.includes('miro') || q.includes('belnr')) {
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">POSTING VERIFICATION (MIRO)</div>
+          <div style="font-size:12px; margin-bottom:4px;">
+            ${isPosted ? '<span style="color:#188038; font-weight:700;">✓ YES, POSTED TO SAP S/4HANA</span>' : '<span style="color:#B45309; font-weight:700;">○ NOT YET POSTED</span>'}
+          </div>
+          <div style="font-size:11px; color:var(--text-secondary);">
+            ${isPosted ? `Accounting Document <strong>BELNR: ${invoice.accountingDocumentNumber || '5100001234'}</strong> registered in fiscal year ${invoice.fiscalYear || '2026'}.` : 'Invoice requires Owner Validation and 3-Way LIV matching before posting to S/4HANA financial ledger.'}
+          </div>
+        </div>
+      `;
+    }
+
+    // 11. Has payment been completed?
+    if (q.includes('payment been completed') || q.includes('has payment') || q.includes('payment completed')) {
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">PAYMENT COMPLETION STATUS</div>
+          <div style="font-size:12px; margin-bottom:4px;">
+            ${isPaid ? '<span style="color:#188038; font-weight:700;">✓ YES, PAYMENT COMPLETED</span>' : '<span style="color:#B45309; font-weight:700;">○ PAYMENT PENDING / NOT DUE</span>'}
+          </div>
+          <div style="font-size:11px; color:var(--text-secondary);">
+            ${isPaid ? `Disbursement executed via SAP FI-AP. Payment Doc: ${invoice.paymentDocumentNumber || '2000012345'}, Settlement: ${invoice.clearingStatus || 'OPEN'}.` : 'Payment run (F110) has not been executed for this open payable item.'}
+          </div>
+        </div>
+      `;
+    }
+
+    // 12. What exceptions exist?
+    if (q.includes('exception') || q.includes('block') || q.includes('defect') || q.includes('mismatch')) {
+      const exceptionsList = [];
+      if (reconciliation.priceVariancePercentage > 5) exceptionsList.push(`Price Variance: +${reconciliation.priceVariancePercentage.toFixed(1)}% exceeds 5.0% tolerance key.`);
+      if (reconciliation.quantityStatus === 'OVER_DELIVERY') exceptionsList.push(`Quantity Over-Delivery: ${reconciliation.quantityInvoiced} billed vs ${reconciliation.quantityReceived} received.`);
+      if (reconciliation.qualityStatus === 'REJECTIONS_DETECTED') exceptionsList.push('Quality Rejection: Defect lot detected in SAP QM (QALS).');
+      if (!reconciliation.vendorMatched) exceptionsList.push('Supplier Mismatch: Vendor identity does not align with Purchase Order.');
+      if (invoice.gstMatchingStatus === 'MISMATCH') exceptionsList.push('Statutory Mismatch: Discrepancy detected against auto-drafted GSTR-2B ITC return.');
+
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">ACTIVE EXCEPTIONS & BLOCKS</div>
+          ${exceptionsList.length === 0 ? '<div style="font-size:11px; color:#188038;">✓ Zero critical exceptions. Invoice satisfies all business and statutory tolerance rules.</div>' : `<div style="font-size:11px; color:var(--status-error); line-height:1.4;">${exceptionsList.map((e) => `<div>⚠ ${e}</div>`).join('')}</div>`}
+        </div>
+      `;
+    }
+
+    // 13. Show AI recommendation
+    if (q.includes('ai recommendation') || q.includes('recommendation') || q.includes('confidence')) {
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">AI DECISION ENGINE EVALUATION</div>
+          <div style="display:grid; grid-template-columns:120px 1fr; gap:3px; font-size:11px;">
+            <span><strong>Recommendation:</strong></span><span>${this.getRecommendationBadge(aiDecision.recommendation)}</span>
+            <span><strong>Confidence Score:</strong></span><span><strong>${aiDecision.confidenceScore}%</strong> (Calculated from 14 deterministic heuristics)</span>
+            <span><strong>Risk Level:</strong></span><span>${this.getRiskBadge(aiDecision.riskLevel)}</span>
+          </div>
+          <div style="margin-top:6px; padding-top:6px; border-top:1px solid var(--border-subtle); font-size:11px; color:var(--text-secondary);">
+            <strong>Reason:</strong> ${aiDecision.explanation.whyRecommended[0] || 'Standard LIV tolerance rules verified.'}
+          </div>
+        </div>
+      `;
+    }
+
+    // 14. Show PO and GR details
+    if (q.includes('po and gr') || q.includes('goods receipt') || q.includes('purchase order')) {
+      return `
+        <div>
+          <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">SAP PO & GOODS RECEIPT DETAILS</div>
+          <div style="font-size:11px; line-height:1.45;">
+            <div><strong>Purchase Order:</strong> ${purchaseOrder ? `${purchaseOrder.poNumber} (${purchaseOrder.companyCode || '1010'}, Date: ${purchaseOrder.poDate})` : 'Non-PO Route'}</div>
+            <div><strong>PO Items:</strong> ${purchaseOrder ? `${purchaseOrder.lineItems[0]?.description || 'Material'} &bull; ${reconciliation.quantityOrdered} EA &bull; ₹${(purchaseOrder.lineItems[0]?.unitPrice || 0).toLocaleString('en-IN')}/EA` : 'G/L Account Assignment'}</div>
+            <div style="margin-top:4px;"><strong>Goods Receipt:</strong> Material Doc MSEG 5000018901 (${reconciliation.quantityReceived} EA received)</div>
+            <div><strong>QM Inspection:</strong> Lot 100004510 (${reconciliation.qualityStatus === 'ALL_PASSED' ? 'Passed' : reconciliation.qualityStatus === 'REJECTIONS_DETECTED' ? 'Rejected Defect' : 'N/A'})</div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Default Fallback
+    return `
+      <div>
+        <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">INVOICE CONTEXT: ${invoice.invoiceId}</div>
+        <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;">
+          Invoice ${invoice.invoiceId} from ${invoice.supplierName} (₹${(invoice.totalGrossAmount || 0).toLocaleString('en-IN')}) is currently in status <strong>${invoice.processingStatus}</strong> with AI recommendation <strong>${aiDecision.recommendation}</strong> (${aiDecision.confidenceScore}%).
+        </div>
+        <div style="margin-top:6px; font-size:11px; color:var(--text-muted);">
+          You can ask: <em>"What should I do next?"</em>, <em>"Compare this invoice with the PO"</em>, or <em>"What is the payment status?"</em>.
+        </div>
+      </div>
+    `;
   }
 }
 
