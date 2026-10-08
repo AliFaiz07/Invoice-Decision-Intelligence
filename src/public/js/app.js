@@ -1177,7 +1177,6 @@ class InvoiceDecisionApp {
     const isGRReceived = reconciliation.quantityReceived > 0;
     const isQMApproved = reconciliation.qualityStatus === 'ALL_PASSED' || reconciliation.qualityStatus === 'NOT_APPLICABLE';
     const isBOValidated = invoice.processingStatus === 'BUSINESS_VALIDATED';
-    const isPosted = invoice.postingStatus === 'POSTED' || invoice.processingStatus === 'POSTED_TO_SAP';
 
     const processStripHtml = `
       <div class="sap-card" style="padding:14px 20px;">
@@ -3873,4 +3872,5 @@ Tel: +91 22 6790 0000 | Email: ${meta.emailSender || 'billing@vendor.com'}
 let app;
 window.addEventListener('DOMContentLoaded', () => {
   app = new InvoiceDecisionApp();
+  window.app = app;
 });
