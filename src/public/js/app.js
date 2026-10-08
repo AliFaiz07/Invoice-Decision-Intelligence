@@ -26,6 +26,37 @@ const ICONS = {
   info: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`,
 };
 
+/**
+ * Safely fetches an endpoint, validates HTTP status and content-type,
+ * and extracts JSON without throwing raw HTML parser errors.
+ */
+async function safeFetchJson(url, options = {}) {
+  const response = await fetch(url, options);
+  const contentType = response.headers.get('content-type') || '';
+
+  if (!response.ok) {
+    let errMsg = `Request failed: ${response.status} ${response.statusText}`;
+    try {
+      if (contentType.includes('application/json')) {
+        const errJson = await response.json();
+        errMsg = errJson.error || errJson.message || errMsg;
+      } else {
+        const text = await response.text();
+        if (text && text.length < 200 && !text.includes('<!DOCTYPE')) {
+          errMsg = text;
+        }
+      }
+    } catch (_) {}
+    throw new Error(errMsg);
+  }
+
+  if (!contentType.includes('application/json')) {
+    throw new Error(`Expected JSON from ${url} but received ${contentType || 'non-JSON content'}`);
+  }
+
+  return response.json();
+}
+
 class InvoiceDecisionApp {
   constructor() {
     this.invoices = [];
@@ -189,11 +220,26 @@ class InvoiceDecisionApp {
   async loadAllData() {
     try {
       const [invRes, msgRes, audRes, gstRes, batchRes] = await Promise.all([
-        fetch('/api/invoices').then((r) => r.json()),
-        fetch('/api/integration-messages').then((r) => r.json()),
-        fetch('/api/audit-trail').then((r) => r.json()),
-        fetch('/api/gst-reconciliation').then((r) => r.json()),
-        fetch('/api/invoices/intake/batch/status').then((r) => r.json()).catch(() => null),
+        safeFetchJson('/api/invoices').catch((err) => {
+          console.error('Error fetching invoices:', err);
+          return [];
+        }),
+        safeFetchJson('/api/integration-messages').catch((err) => {
+          console.error('Error fetching integration messages:', err);
+          return [];
+        }),
+        safeFetchJson('/api/audit-trail').catch((err) => {
+          console.error('Error fetching audit trail:', err);
+          return [];
+        }),
+        safeFetchJson('/api/gst-reconciliation').catch((err) => {
+          console.error('Error fetching GST reconciliation:', err);
+          return { records: [], summary: null };
+        }),
+        safeFetchJson('/api/invoices/intake/batch/status').catch((err) => {
+          console.error('Error fetching batch status:', err);
+          return null;
+        }),
       ]);
 
       this.invoices = invRes || [];
@@ -209,7 +255,7 @@ class InvoiceDecisionApp {
       this.renderCurrentView();
     } catch (err) {
       console.error('Error loading data:', err);
-      this.showToast('Failed to connect to SAP BTP backend services', 'error');
+      this.showToast('Failed to connect to backend services: ' + (err.message || 'Network error'), 'error');
     }
   }
 
@@ -1741,17 +1787,17 @@ class InvoiceDecisionApp {
     if (!confirm) return;
 
     try {
-      const res = await fetch('/api/gst-reconciliation/import', {
+      const res = await safeFetchJson('/api/gst-reconciliation/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ records: this.gstData.records }),
-      }).then((r) => r.json());
+      });
 
       this.showToast(`Imported ${res.count} GSTR-2B records from GSP Gateway`, 'success');
       await this.loadAllData();
       this.renderGstReconciliationView();
     } catch (e) {
-      this.showToast('Import failed', 'error');
+      this.showToast('Import failed: ' + (e.message || 'Network error'), 'error');
     }
   }
 
@@ -1806,14 +1852,14 @@ class InvoiceDecisionApp {
 
   async retryIntegrationMessage(messageId) {
     try {
-      const res = await fetch(`/api/integration-messages/${messageId}/retry`, { method: 'POST' }).then((r) => r.json());
+      const res = await safeFetchJson(`/api/integration-messages/${messageId}/retry`, { method: 'POST' });
       if (res.success) {
         this.showToast(res.message, 'success');
         await this.loadAllData();
         this.renderIntegrationMonitor();
       }
     } catch (e) {
-      this.showToast('Replay failed', 'error');
+      this.showToast('Replay failed: ' + (e.message || 'Network error'), 'error');
     }
   }
 
@@ -2234,12 +2280,10 @@ class InvoiceDecisionApp {
     const stages = stagesConfig[channel] || stagesConfig.physical;
 
     // Trigger backend ingestion in parallel
-    const apiPromise = fetch(`/api/invoices/intake/batch/${channel}`, {
+    const apiPromise = safeFetchJson(`/api/invoices/intake/batch/${channel}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-    })
-      .then((r) => r.json())
-      .catch((err) => ({ error: err.message }));
+    });
 
     // Animate stages smoothly over 4-4.5 seconds
     try {
@@ -2250,10 +2294,6 @@ class InvoiceDecisionApp {
       }
 
       const res = await apiPromise;
-
-      if (res.error) {
-        throw new Error(res.error);
-      }
 
       // Final completion stage (100%)
       const finalCount = res.count || count;
@@ -2440,11 +2480,11 @@ class InvoiceDecisionApp {
   // --------------------------------------------------------------------------
   async postToSAP(invoiceId) {
     try {
-      const res = await fetch(`/api/invoices/${invoiceId}/post`, {
+      const res = await safeFetchJson(`/api/invoices/${invoiceId}/post`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ actorId: 'BO_AARAV', actorName: `${this.currentUser.name} (${this.currentUser.role})` }),
-      }).then((r) => r.json());
+      });
 
       if (res.postResult && res.postResult.success) {
         this.showToast(res.postResult.message, 'success');
@@ -2452,7 +2492,7 @@ class InvoiceDecisionApp {
         this.renderCurrentView();
       }
     } catch (e) {
-      this.showToast('SAP Posting Failed', 'error');
+      this.showToast('SAP Posting Failed: ' + (e.message || 'Network error'), 'error');
     }
   }
 
@@ -2461,11 +2501,11 @@ class InvoiceDecisionApp {
     if (!reason) return;
 
     try {
-      const res = await fetch(`/api/invoices/${invoiceId}/park`, {
+      const res = await safeFetchJson(`/api/invoices/${invoiceId}/park`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason, actorId: 'AP_CLERK', actorName: 'AP Clerk' }),
-      }).then((r) => r.json());
+      });
 
       if (res.parkResult && res.parkResult.success) {
         this.showToast(res.parkResult.message, 'success');
@@ -2473,7 +2513,7 @@ class InvoiceDecisionApp {
         this.renderCurrentView();
       }
     } catch (e) {
-      this.showToast('SAP Parking Failed', 'error');
+      this.showToast('SAP Parking Failed: ' + (e.message || 'Network error'), 'error');
     }
   }
 
@@ -2858,8 +2898,7 @@ Tel: +91 22 6790 0000 | Email: ${meta.emailSender || 'billing@vendor.com'}
       `;
 
       if (activeTab === 'payload') {
-        fetch(payloadUrl)
-          .then((r) => r.json())
+        safeFetchJson(payloadUrl)
           .then((data) => {
             const pre = document.getElementById('jsonPayloadDisplay');
             if (pre) pre.innerText = JSON.stringify(data, null, 2);
