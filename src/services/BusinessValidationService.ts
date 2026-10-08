@@ -79,6 +79,11 @@ export class BusinessValidationService {
     };
   }
 
+  public reset(): void {
+    this.decisions.clear();
+    this.seedInitialDecisions();
+  }
+
   public recordDecision(params: {
     invoiceId: string;
     action: BusinessOwnerAction;
@@ -90,6 +95,11 @@ export class BusinessValidationService {
     reason: string;
     previousStatus: string;
   }): BusinessOwnerDecisionRecord {
+    const existing = this.decisions.get(params.invoiceId);
+    if (existing && existing.action === params.action && existing.reason === params.reason) {
+      return existing;
+    }
+
     const record: BusinessOwnerDecisionRecord = {
       action: params.action,
       userId: params.userId,

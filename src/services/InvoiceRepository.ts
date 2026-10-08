@@ -95,6 +95,7 @@ export class InvoiceRepository {
   public resetToDefaultScenarios(): void {
     this.invoices.clear();
     this.channelBatchStatus = { physical: false, email: false, einvoice: false };
+    this.businessValidationService.reset();
     this.dataStore.seedAll();
     const stored = this.dataStore.getAllInvoices();
     stored.forEach((inv) => {

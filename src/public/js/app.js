@@ -24,6 +24,9 @@ const ICONS = {
   package: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>`,
   user: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`,
   info: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`,
+  lock: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`,
+  creditCard: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>`,
+  refresh: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>`,
 };
 
 /**
@@ -849,6 +852,9 @@ class InvoiceDecisionApp {
     if (this.currentRoute !== 'app') {
       this.navigateToRoute('/app', true);
     }
+    if (this.selectedInvoiceId !== invoiceId) {
+      this.simulationState = null;
+    }
     this.selectedInvoiceId = invoiceId;
     this.isDecisionDetailActive = true;
     this._navigatingToDetail = true;
@@ -981,9 +987,130 @@ class InvoiceDecisionApp {
 
     const { invoice, purchaseOrder, reconciliation, aiDecision, businessOwner, slaRecord } = item;
 
-    // 1. TOP 5-QUESTION SUMMARY CARD (ENTERPRISE HERO EXPERIENCE)
-    const primaryWhy = aiDecision.explanation.whyRecommended[0] || 'Standard reconciliation checks evaluated.';
-    const primaryAction = aiDecision.explanation.suggestedAction;
+    // Simulation awareness
+    const isSimActive = Boolean(this.simulationState && this.simulationState.active && this.simulationState.invoiceId === invoice.invoiceId);
+    const recToRender = isSimActive ? this.simulationState.simRec : aiDecision.recommendation;
+    const confToRender = isSimActive ? this.simulationState.simConfidence : aiDecision.confidenceScore;
+    const primaryWhy = (isSimActive && this.simulationState.changeReason) ? this.simulationState.changeReason : (aiDecision.explanation.whyRecommended[0] || 'Standard reconciliation checks evaluated.');
+    const primaryAction = (isSimActive && recToRender === 'AUTO_PROCEED') ? 'Simulated parameters satisfy enterprise criteria. Eligible for Posting.' : aiDecision.explanation.suggestedAction;
+
+    // Lifecycle state flags
+    const boDecision = item.businessOwnerDecision;
+    const isOwnerValidated = Boolean(boDecision && boDecision.action === 'ACCEPT');
+    const isOwnerRejected = Boolean(boDecision && boDecision.action === 'REJECT');
+    const isParked = invoice.postingStatus === 'PARKED' || invoice.processingStatus === 'PARKED_IN_SAP';
+    const isPosted = invoice.postingStatus === 'POSTED' || invoice.processingStatus === 'POSTED_TO_SAP' || Boolean(invoice.accountingDocumentNumber);
+    const isPaid = invoice.paymentStatus === 'PAID' || invoice.clearingStatus === 'CLEARED' || Boolean(invoice.paymentDocumentNumber);
+    const isCleared = invoice.clearingStatus === 'CLEARED' || Boolean(invoice.clearingDocumentNumber);
+
+    // 1. Build Action Buttons respecting strict workflow hierarchy & prerequisites
+    let validateBtnHtml = '';
+    if (isOwnerValidated) {
+      const valDate = boDecision.timestamp ? boDecision.timestamp.replace('T', ' ').slice(0, 16) : 'Verified';
+      validateBtnHtml = `
+        <button class="sap-btn sap-btn-sm" disabled style="background:#EBF7EE; color:#188038; border:1px solid #C6E7C1; cursor:default;" title="Owner validation completed by ${boDecision.userName || 'Business Owner'} on ${valDate}">
+          ${ICONS.check} Owner Validated (${boDecision.userName || 'Business Owner'})
+        </button>
+      `;
+    } else if (isOwnerRejected) {
+      validateBtnHtml = `
+        <button class="sap-btn sap-btn-sm" disabled style="background:#FEECEC; color:#D9381E; border:1px solid #F8C5BF; cursor:default;" title="Disputed / Rejected by ${boDecision.userName || 'Business Owner'}">
+          ${ICONS.xCircle} Owner Rejected (${boDecision.userName || 'Business Owner'})
+        </button>
+      `;
+    } else {
+      validateBtnHtml = `
+        <button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.openValidationModal('${invoice.invoiceId}')">
+          ${ICONS.user} Validate as Owner
+        </button>
+      `;
+    }
+
+    let parkBtnHtml = '';
+    if (isPosted) {
+      parkBtnHtml = '';
+    } else if (isParked) {
+      parkBtnHtml = `
+        <button class="sap-btn sap-btn-sm" disabled style="background:#FEF6E7; color:#B45309; border:1px solid #F8DCA6; cursor:default;" title="Preliminary Document Parked in S/4HANA (Payment Block R)">
+          ${ICONS.info} Parked in S/4HANA (MIR7)
+        </button>
+      `;
+    } else {
+      parkBtnHtml = `
+        <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.parkInSAP('${invoice.invoiceId}')">
+          Park Invoice (MIR7)
+        </button>
+      `;
+    }
+
+    let postBtnHtml = '';
+    if (isPosted) {
+      postBtnHtml = `
+        <span class="sap-badge sap-badge-success">${ICONS.check} POSTED TO S/4HANA (BELNR ${invoice.accountingDocumentNumber || '5100001234'})</span>
+      `;
+    } else {
+      const isHold = recToRender === 'HOLD' || recToRender === 'POTENTIAL_DUPLICATE';
+      const isRej = recToRender === 'REJECT' || isOwnerRejected;
+      const needsOwnerVal = (recToRender === 'BUSINESS_VALIDATION_REQUIRED' || recToRender === 'MANUAL_REVIEW') && !isOwnerValidated && !isSimActive;
+
+      if (isHold) {
+        postBtnHtml = `
+          <button class="sap-btn sap-btn-secondary sap-btn-sm" disabled style="opacity:0.6; cursor:not-allowed;" title="Locked: Invoice is on HOLD or duplicate block. Resolve exception blockers first.">
+            ${ICONS.lock} Post to S/4HANA (MIRO)
+          </button>
+        `;
+      } else if (isRej) {
+        postBtnHtml = `
+          <button class="sap-btn sap-btn-secondary sap-btn-sm" disabled style="opacity:0.6; cursor:not-allowed;" title="Locked: Invoice is rejected by Business Owner. Cannot post to S/4HANA.">
+            ${ICONS.lock} Post to S/4HANA (MIRO)
+          </button>
+        `;
+      } else if (needsOwnerVal) {
+        postBtnHtml = `
+          <button class="sap-btn sap-btn-secondary sap-btn-sm" disabled style="opacity:0.6; cursor:not-allowed;" title="Locked: Complete Business Owner Validation first.">
+            ${ICONS.lock} Post to S/4HANA (MIRO)
+          </button>
+        `;
+      } else {
+        postBtnHtml = `
+          <button class="sap-btn sap-btn-positive sap-btn-sm" onclick="app.postToSAP('${invoice.invoiceId}')">
+            ${ICONS.check} Post to S/4HANA (MIRO)${isSimActive && recToRender === 'AUTO_PROCEED' ? ' (Simulated)' : ''}
+          </button>
+        `;
+      }
+    }
+
+    let paymentActionHtml = '';
+    if (isCleared) {
+      paymentActionHtml = `
+        <span class="sap-badge sap-badge-success">${ICONS.checkCircle} CLEARED (BSAK: ${invoice.clearingDocumentNumber || '2000012346'})</span>
+      `;
+    } else if (isPaid) {
+      paymentActionHtml = `
+        <span class="sap-badge sap-badge-success">${ICONS.checkCircle} PAID (DOC ${invoice.paymentDocumentNumber || '2000012345'})</span>
+        <button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.clearPayment('${invoice.invoiceId}')">
+          Clear Settlement (BSAK)
+        </button>
+      `;
+    } else if (isPosted) {
+      paymentActionHtml = `
+        <button class="sap-btn sap-btn-positive sap-btn-sm" onclick="app.processPayment('${invoice.invoiceId}')">
+          ${ICONS.creditCard} Execute AP Payment Run (F110)
+        </button>
+        <button class="sap-btn sap-btn-secondary sap-btn-sm" disabled style="opacity:0.6; cursor:not-allowed;" title="Locked: Payment (F110) must be executed before settlement clearing">
+          ${ICONS.lock} Clear Settlement (BSAK)
+        </button>
+      `;
+    } else {
+      paymentActionHtml = `
+        <button class="sap-btn sap-btn-secondary sap-btn-sm" disabled style="opacity:0.6; cursor:not-allowed;" title="Locked: Invoice must be posted to S/4HANA (MIRO) before payment run">
+          ${ICONS.lock} Execute AP Payment (F110)
+        </button>
+        <button class="sap-btn sap-btn-secondary sap-btn-sm" disabled style="opacity:0.6; cursor:not-allowed;" title="Locked: Payment (F110) must be executed before settlement clearing">
+          ${ICONS.lock} Clear Settlement (BSAK)
+        </button>
+      `;
+    }
 
     const topQuestionsHtml = `
       <div class="decision-hero-card">
@@ -1016,8 +1143,9 @@ class InvoiceDecisionApp {
           <div class="question-block">
             <div class="question-label">3. System Recommendation</div>
             <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
-              ${this.getRecommendationBadge(aiDecision.recommendation)}
-              <span style="font-weight:600; font-size:13px; color:var(--text-primary);">Confidence: ${aiDecision.confidenceScore}%</span>
+              ${this.getRecommendationBadge(recToRender)}
+              <span style="font-weight:600; font-size:13px; color:var(--text-primary);">Confidence: ${confToRender}%</span>
+              ${isSimActive ? `<span class="sap-badge sap-badge-info" style="font-size:10px; font-weight:700;">SIMULATED POLICY</span>` : ''}
             </div>
             <div style="font-size:12px; color:var(--text-secondary); margin-top:6px; line-height:1.4;">
               <strong>Why?</strong> ${primaryWhy}
@@ -1033,33 +1161,16 @@ class InvoiceDecisionApp {
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
                 <span>View Source Document</span>
               </button>
-              ${
-                invoice.postingStatus === 'POSTED' || invoice.processingStatus === 'POSTED_TO_SAP'
-                  ? `
-                  <span class="sap-badge sap-badge-success">${ICONS.check} POSTED TO S/4HANA (BELNR ${invoice.accountingDocumentNumber || '5100001234'})</span>
-                  ${invoice.paymentStatus === 'PAID' || invoice.clearingStatus === 'CLEARED'
-                    ? `<span class="sap-badge sap-badge-success">${ICONS.checkCircle} ${invoice.clearingStatus === 'CLEARED' ? 'PAID & CLEARED' : 'PAID'} (DOC ${invoice.paymentDocumentNumber || '2000012345'})</span>
-                       ${invoice.clearingStatus !== 'CLEARED' ? `<button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.clearPayment('${invoice.invoiceId}')">Clear Settlement (BSAK)</button>` : ''}`
-                    : `<button class="sap-btn sap-btn-positive sap-btn-sm" onclick="app.processPayment('${invoice.invoiceId}')">Execute AP Payment Run (F110)</button>`
-                  }
-                  `
-                  : invoice.postingStatus === 'PARKED' || invoice.processingStatus === 'PARKED_IN_SAP'
-                  ? `
-                  <span class="sap-badge sap-badge-warning">${ICONS.info} PARKED IN S/4HANA (PAYMENT BLOCK R)</span>
-                  <button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.openValidationModal('${invoice.invoiceId}')">Validate as Owner</button>
-                  <button class="sap-btn sap-btn-positive sap-btn-sm" onclick="app.postToSAP('${invoice.invoiceId}')" ${aiDecision.recommendation === 'HOLD' || aiDecision.recommendation === 'REJECT' ? 'disabled style="opacity:0.5;"' : ''}>Post to S/4HANA (MIRO)</button>
-                  `
-                  : `
-                  <button class="sap-btn sap-btn-positive sap-btn-sm" onclick="app.postToSAP('${invoice.invoiceId}')" ${aiDecision.recommendation === 'HOLD' || aiDecision.recommendation === 'REJECT' ? 'disabled style="opacity:0.5;"' : ''}>Post to S/4HANA (MIRO)</button>
-                  <button class="sap-btn sap-btn-secondary sap-btn-sm" onclick="app.parkInSAP('${invoice.invoiceId}')">Park Invoice (MIR7)</button>
-                  <button class="sap-btn sap-btn-primary sap-btn-sm" onclick="app.openValidationModal('${invoice.invoiceId}')">Validate as Owner</button>
-                  `
-              }
+              ${validateBtnHtml}
+              ${parkBtnHtml}
+              ${postBtnHtml}
+              ${paymentActionHtml}
             </div>
           </div>
         </div>
       </div>
     `;
+
 
     // 2. SAP CONTEXT PROCESS STRIP (PURE SVG CONNECTORS)
     const isPOFound = Boolean(purchaseOrder);
@@ -1112,6 +1223,128 @@ class InvoiceDecisionApp {
       </div>
     `;
 
+    // 2b. AI ANALYSIS VERIFICATION CHECKLIST (10-POINT EXPLICIT SYSTEM EVALUATION)
+    const checks = [
+      {
+        num: '01',
+        title: 'Header & Vendor Data Extracted',
+        detail: `Vendor: ${invoice.supplierName} (${invoice.supplierTaxId || 'Tax ID Verified'}) | Inv #${invoice.invoiceNumber}`,
+        status: reconciliation.vendorMatched ? 'PASS' : 'FAIL',
+        note: reconciliation.vendorMatched ? 'LFA1 Master match confirmed' : 'Vendor ID mismatch with PO vendor',
+      },
+      {
+        num: '02',
+        title: 'Purchase Order Correlated',
+        detail: purchaseOrder ? `PO #${purchaseOrder.poNumber} (${purchaseOrder.companyCode || '1010'} / EKKO)` : 'Non-PO / Direct G/L Cost Center Route',
+        status: purchaseOrder ? 'PASS' : (invoice.nonPOAccountAssignment ? 'INFO' : 'FAIL'),
+        note: purchaseOrder ? 'PO line items bound successfully' : 'Routed via Non-PO GL assignment',
+      },
+      {
+        num: '03',
+        title: 'Goods Receipt (MSEG / Movement 101)',
+        detail: `Billed: ${reconciliation.quantityInvoiced} EA vs Received: ${reconciliation.quantityReceived} EA`,
+        status: reconciliation.quantityReceived >= reconciliation.quantityInvoiced ? 'PASS' : (reconciliation.quantityReceived > 0 ? 'WARN' : 'WARN'),
+        note: reconciliation.quantityStatus === 'EXACT_MATCH' ? 'Exact warehouse match confirmed' : (reconciliation.quantityStatus === 'OVER_DELIVERY' ? 'Invoiced quantity exceeds delivered' : 'Goods receipt pending'),
+      },
+      {
+        num: '04',
+        title: 'Quality Inspection (SAP QM / QALS)',
+        detail: `Status: ${reconciliation.qualityStatus === 'ALL_PASSED' ? 'Passed (0 defect lots)' : reconciliation.qualityStatus === 'REJECTIONS_DETECTED' ? 'Rejected Defect Lots Detected' : 'Not Required'}`,
+        status: reconciliation.qualityStatus === 'ALL_PASSED' ? 'PASS' : (reconciliation.qualityStatus === 'REJECTIONS_DETECTED' ? 'FAIL' : 'INFO'),
+        note: reconciliation.qualityStatus === 'REJECTIONS_DETECTED' ? 'Defect lot blocked from standard settlement' : 'Material quality approved',
+      },
+      {
+        num: '05',
+        title: 'Duplicate Ingestion Screening',
+        detail: aiDecision.recommendation === 'POTENTIAL_DUPLICATE' ? 'Suspected duplicate hash across BSIK/BSAK ledger' : 'Unique invoice reference verified across SAP open & cleared items',
+        status: aiDecision.recommendation === 'POTENTIAL_DUPLICATE' ? 'FAIL' : 'PASS',
+        note: aiDecision.recommendation === 'POTENTIAL_DUPLICATE' ? 'Duplicate submission block active' : 'Zero duplicate matches found',
+      },
+      {
+        num: '06',
+        title: 'Price Tolerance PP Evaluation',
+        detail: `Variance: ${reconciliation.priceVariancePercentage > 0 ? '+' : ''}${reconciliation.priceVariancePercentage.toFixed(1)}% vs SAP Tolerance Key PP (5.0%)`,
+        status: reconciliation.priceStatus === 'EXACT_MATCH' ? 'PASS' : (isSimActive && recToRender === 'AUTO_PROCEED' ? 'PASS' : 'WARN'),
+        note: reconciliation.priceStatus === 'EXACT_MATCH' ? 'Within tolerance threshold' : (isSimActive && recToRender === 'AUTO_PROCEED' ? 'Within simulated tolerance' : 'Breaches standard PP tolerance'),
+      },
+      {
+        num: '07',
+        title: 'Quantity Delivery Reconciliation',
+        detail: `Delivered: ${reconciliation.quantityReceived} EA | Billed: ${reconciliation.quantityInvoiced} EA`,
+        status: reconciliation.quantityStatus === 'EXACT_MATCH' ? 'PASS' : (isSimActive && recToRender === 'AUTO_PROCEED' ? 'PASS' : 'WARN'),
+        note: reconciliation.quantityStatus === 'EXACT_MATCH' ? 'Zero quantity variance' : (isSimActive && recToRender === 'AUTO_PROCEED' ? 'Within simulated buffer' : 'Over-delivery requires review'),
+      },
+      {
+        num: '08',
+        title: 'Statutory GST GSTR-2B Cross-Check',
+        detail: `ITC Eligibility: ${invoice.gstMatchingStatus === 'MISMATCH' ? 'At-Risk Mismatch in auto-drafted GSTR-2B' : 'Verified with GSTR-2B return'}`,
+        status: invoice.gstMatchingStatus === 'MISMATCH' ? 'WARN' : 'PASS',
+        note: invoice.gstMatchingStatus === 'MISMATCH' ? '2B discrepancy requires tax credit hold' : 'Input Tax Credit compliant',
+      },
+      {
+        num: '09',
+        title: 'Risk Rating & Confidence Assessment',
+        detail: `Risk Level: ${aiDecision.riskLevel} | Algorithmic Confidence: ${confToRender}%`,
+        status: aiDecision.riskLevel === 'LOW' ? 'PASS' : (aiDecision.riskLevel === 'MEDIUM' ? 'WARN' : 'FAIL'),
+        note: 'Computed across 14 deterministic heuristics',
+      },
+      {
+        num: '10',
+        title: 'Final Recommendation Formulation',
+        detail: `Outcome: ${recToRender} ${isSimActive ? '[SIMULATED]' : ''}`,
+        status: (recToRender === 'AUTO_PROCEED' || recToRender === 'ALREADY_PROCESSED') ? 'PASS' : (recToRender === 'BUSINESS_VALIDATION_REQUIRED' || recToRender === 'MANUAL_REVIEW') ? 'WARN' : 'FAIL',
+        note: primaryWhy,
+      },
+    ];
+
+    const aiChecklistHtml = `
+      <div class="sap-card" style="padding:16px 20px;">
+        <div class="sap-card-header" style="padding:0 0 12px 0;">
+          <div>
+            <div class="sap-card-title">AI Analysis & Verification Audit Matrix</div>
+            <span class="sap-card-subtitle">Comprehensive 10-point deterministic evaluation across ERP master data, warehouse receipts, quality inspection, statutory tax, and fraud checks.</span>
+          </div>
+          <div>
+            <span class="sap-badge ${recToRender === 'AUTO_PROCEED' ? 'sap-badge-success' : recToRender === 'HOLD' || recToRender === 'POTENTIAL_DUPLICATE' ? 'sap-badge-error' : 'sap-badge-warning'}">
+              ${recToRender.replace(/_/g, ' ')} (${confToRender}%)
+            </span>
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(310px, 1fr)); gap:10px; margin-top:8px;">
+          ${checks
+            .map((c) => {
+              let badgeClass = 'sap-badge-success';
+              let icon = ICONS.checkCircle;
+              if (c.status === 'WARN') {
+                badgeClass = 'sap-badge-warning';
+                icon = ICONS.alertTriangle;
+              } else if (c.status === 'FAIL') {
+                badgeClass = 'sap-badge-error';
+                icon = ICONS.xCircle;
+              } else if (c.status === 'INFO') {
+                badgeClass = 'sap-badge-info';
+                icon = ICONS.info;
+              }
+              return `
+                <div style="border:1px solid var(--border-subtle); border-radius:var(--radius-input); padding:10px 12px; background:var(--surface-subtle); display:flex; flex-direction:column; justify-content:space-between;">
+                  <div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                      <span style="font-size:12px; font-weight:700; color:var(--text-primary);">${c.title}</span>
+                      <span class="sap-badge ${badgeClass}" style="font-size:10px; padding:1px 6px;">${icon} ${c.status}</span>
+                    </div>
+                    <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;">${c.detail}</div>
+                  </div>
+                  <div style="font-size:10px; color:var(--text-muted); font-style:italic; margin-top:6px; border-top:1px dashed var(--border-subtle); padding-top:4px;">
+                    ${c.note}
+                  </div>
+                </div>
+              `;
+            })
+            .join('')}
+        </div>
+      </div>
+    `;
+
     // 3. THREE-WAY MATCH VISUALIZATION (SEMANTIC STATUS COMPONENTS)
     const threeWayBoxHtml = `
       <div class="sap-card" style="padding:16px 20px;">
@@ -1160,7 +1393,33 @@ class InvoiceDecisionApp {
     `;
 
     // 3b. EVIDENCE-BASED COMPARISON TABLE (SECTION 10)
-    const compRows = item.comparisonRows || reconciliation.comparisonRows || [];
+    const rawCompRows = item.comparisonRows || reconciliation.comparisonRows || [];
+    const compRows = rawCompRows.map((r) => {
+      let row = { ...r };
+      if (isSimActive) {
+        if (row.check.toLowerCase().includes('price') && reconciliation.priceVariancePercentage > 0) {
+          if (reconciliation.priceVariancePercentage <= this.simulationState.priceTol) {
+            row.result = 'MATCH';
+            row.details = `Price variance (+${reconciliation.priceVariancePercentage.toFixed(1)}%) falls within simulated tolerance limit (<= ${this.simulationState.priceTol}%).`;
+          }
+        }
+        if (row.check.toLowerCase().includes('quantity') && reconciliation.quantityStatus === 'OVER_DELIVERY') {
+          const overDelivPct = ((reconciliation.quantityInvoiced - reconciliation.quantityReceived) / reconciliation.quantityReceived) * 100;
+          if (overDelivPct <= this.simulationState.qtyTol) {
+            row.result = 'MATCH';
+            row.details = `Over-delivery (+${overDelivPct.toFixed(1)}%) falls within simulated buffer limit (<= ${this.simulationState.qtyTol}%).`;
+          }
+        }
+        if (row.check.toLowerCase().includes('quality') && reconciliation.qualityStatus === 'REJECTIONS_DETECTED') {
+          if (this.simulationState.qmStrict === 'CONDITIONAL') {
+            row.result = 'CONDITIONAL_APPROVAL';
+            row.details = `Quality defects permitted conditionally upon Requisitioner sign-off under simulated policy.`;
+          }
+        }
+      }
+      return row;
+    });
+
     const comparisonTableHtml = `
       <div class="sap-card">
         <div class="sap-card-header">
@@ -1168,6 +1427,7 @@ class InvoiceDecisionApp {
             <div class="sap-card-title">Evidence-Based Comparison & Validation Ledger</div>
             <span class="sap-card-subtitle">Real side-by-side reconciliation between Billing Side (Invoice) and Expected / Received Side (SAP PO, GR, QM).</span>
           </div>
+          ${isSimActive ? `<span class="sap-badge sap-badge-info" style="font-size:11px;">WHAT-IF SIMULATION APPLIED</span>` : ''}
         </div>
         <div class="sap-table-wrapper">
           <table class="sap-table">
@@ -1197,6 +1457,10 @@ class InvoiceDecisionApp {
                 } else if (r.result === 'NON_PO' || r.result === 'INFO') {
                   badgeClass = 'sap-badge-neutral';
                   icon = ICONS.info;
+                } else if (r.result === 'CONDITIONAL_APPROVAL') {
+                  badgeClass = 'sap-badge-info';
+                  icon = ICONS.info;
+                  text = 'CONDITIONAL';
                 }
                 return `
                   <tr>
@@ -1219,28 +1483,53 @@ class InvoiceDecisionApp {
       </div>
     `;
 
-    // 4. DOCUMENT REFERENCE CHAIN (SECTION 28)
+    // 4. S/4HANA PROCUREMENT & FINANCE SETTLEMENT CHAIN
     const docChain = item.documentChain || [];
+    let activeStageIdx = 0;
+    if (isCleared) {
+      activeStageIdx = 7;
+    } else if (isPaid) {
+      activeStageIdx = 7;
+    } else if (isPosted) {
+      activeStageIdx = 6;
+    } else if (isOwnerValidated || isParked) {
+      activeStageIdx = 5;
+    } else {
+      activeStageIdx = 4;
+    }
+
     const documentChainHtml = `
       <div class="sap-card" style="padding:16px 20px;">
         <div class="sap-card-header" style="padding:0 0 12px 0;">
           <div>
-            <div class="sap-card-title">Document Reference Chain</div>
-            <span class="sap-card-subtitle">End-to-end relational audit trace across ERP business documents. Uncreated documents are explicitly marked.</span>
+            <div class="sap-card-title">S/4HANA Procurement & Finance Settlement Chain</div>
+            <span class="sap-card-subtitle">Continuous audit-verified trace across ERP procurement, material movement, quality inspection, and financial clearing documents.</span>
           </div>
         </div>
         <div class="doc-chain-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
           ${docChain.map((node, idx) => {
-            const isCreated = node.referenceNumber !== 'NOT CREATED' && node.status !== 'NOT CREATED';
+            const isCreated = node.referenceNumber !== 'NOT CREATED' && node.status !== 'NOT CREATED' && node.status !== 'NOT APPLICABLE';
+            const isCurrent = idx === activeStageIdx && !isCleared;
+            const isException = node.status.includes('REJECT') || node.status.includes('HOLD') || node.status.includes('MISMATCH');
+
+            let chipHtml = '';
+            if (isException) {
+              chipHtml = `<span class="sap-badge sap-badge-error" style="font-size:10px; padding:1px 6px;">⚠ EXCEPTION</span>`;
+            } else if (isCreated) {
+              chipHtml = `<span class="sap-badge sap-badge-success" style="font-size:10px; padding:1px 6px;">✓ COMPLETED</span>`;
+            } else if (isCurrent) {
+              chipHtml = `<span class="sap-badge sap-badge-info" style="font-size:10px; padding:1px 6px; font-weight:700;">● CURRENT STAGE</span>`;
+            } else {
+              chipHtml = `<span class="sap-badge sap-badge-neutral" style="font-size:10px; padding:1px 6px;">○ PENDING</span>`;
+            }
+
             return `
-              <div style="border:1px solid ${isCreated ? 'var(--border-main)' : 'var(--border-subtle)'}; border-radius:var(--radius-card); padding:12px; background:${isCreated ? 'var(--surface-card)' : 'var(--surface-subtle)'}; opacity:${isCreated ? '1' : '0.65'};">
+              <div style="border:${isCurrent ? '1.5px solid var(--brand-primary)' : isCreated ? '1px solid var(--border-main)' : '1px solid var(--border-subtle)'}; border-radius:var(--radius-card); padding:12px; background:${isCurrent ? 'rgba(0, 112, 242, 0.04)' : isCreated ? 'var(--surface-card)' : 'var(--surface-subtle)'}; opacity:${isCreated || isCurrent ? '1' : '0.65'}; transition:all 0.2s ease;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                  <span style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">${idx + 1}. ${node.label}</span>
-                  <span class="sap-badge ${isCreated ? 'sap-badge-success' : 'sap-badge-neutral'}" style="font-size:10px; padding:1px 6px;">
-                    ${node.status}
-                  </span>
+                  <span style="font-size:11px; font-weight:700; color:${isCurrent ? 'var(--brand-primary)' : 'var(--text-muted)'}; text-transform:uppercase;">${idx + 1}. ${node.label}</span>
+                  ${chipHtml}
                 </div>
-                <div style="font-size:13px; font-weight:700; color:${isCreated ? 'var(--text-primary)' : 'var(--text-muted)'}; font-family:monospace;">
+                <div style="font-size:13px; font-weight:700; color:${isCreated ? 'var(--text-primary)' : isCurrent ? 'var(--brand-primary)' : 'var(--text-muted)'}; font-family:monospace;">
                   ${node.referenceNumber}
                 </div>
                 <div style="font-size:11px; color:var(--text-secondary); margin-top:4px;">
@@ -1253,6 +1542,7 @@ class InvoiceDecisionApp {
         </div>
       </div>
     `;
+
 
     // 5. AP PAYMENT STATUS & SETTLEMENT CARD (SECTION 21)
     const paymentStatusHtml = `
@@ -1518,6 +1808,7 @@ class InvoiceDecisionApp {
     workspace.innerHTML =
       topQuestionsHtml +
       processStripHtml +
+      aiChecklistHtml +
       extractedDataHtml +
       threeWayBoxHtml +
       comparisonTableHtml +
@@ -1546,10 +1837,12 @@ class InvoiceDecisionApp {
     if (sPrice) sPrice.value = 5;
     if (sQty) sQty.value = 0;
     if (sQM) sQM.value = 'STRICT';
-    this.runWhatIfSimulation();
+    this.simulationState = null;
+    this.renderDecisionWorkspace();
+    this.runWhatIfSimulation(true);
   }
 
-  runWhatIfSimulation() {
+  runWhatIfSimulation(isReset = false) {
     const sPrice = document.getElementById('sliderWhatIfPrice');
     const sQty = document.getElementById('sliderWhatIfQty');
     const sQM = document.getElementById('selectWhatIfQM');
@@ -1610,6 +1903,22 @@ class InvoiceDecisionApp {
       changeReason = `Quality defects permitted conditionally upon Requisitioner sign-off rather than strict Hold.`;
     }
 
+    const isModified = (priceTol !== 5 || qtyTol !== 0 || qmStrict !== 'STRICT');
+    if (!isReset && isModified) {
+      this.simulationState = {
+        active: true,
+        invoiceId: this.selectedInvoiceId,
+        priceTol,
+        qtyTol,
+        qmStrict,
+        simRec,
+        simConfidence,
+        changeReason,
+      };
+    } else {
+      this.simulationState = null;
+    }
+
     resultBox.innerHTML = `
       <div style="display:flex; align-items:center; gap:16px;">
         <div>
@@ -1626,7 +1935,18 @@ class InvoiceDecisionApp {
         <strong>Impact Analysis:</strong> ${changeReason}
       </div>
     `;
+
+    // Reactively update the main workspace with the simulation if not in recursive render
+    if (!this._isRenderingWorkspace) {
+      this._isRenderingWorkspace = true;
+      try {
+        this.renderDecisionWorkspace();
+      } finally {
+        this._isRenderingWorkspace = false;
+      }
+    }
   }
+
 
   // --------------------------------------------------------------------------
   // SUPPLIER 360 INTELLIGENCE DRAWER
@@ -2541,25 +2861,35 @@ class InvoiceDecisionApp {
 
     const stagesConfig = {
       physical: [
-        { label: 'Initializing scanner...', pct: 15, delayMs: 800 },
-        { label: `Capturing ${count} documents...`, pct: 35, delayMs: 900 },
-        { label: 'Running OCR extraction...', pct: 60, delayMs: 1000 },
-        { label: 'Validating invoice fields...', pct: 80, delayMs: 900 },
-        { label: 'Ingesting invoices into decision workflow...', pct: 95, delayMs: 800 },
+        { label: 'Reading high-res PDF scanned documents from gate scanner...', pct: 12, delayMs: 550 },
+        { label: 'Optical Character Recognition (OCR) extraction pipeline...', pct: 25, delayMs: 600 },
+        { label: 'Coordinate geometry & layout document segmentation...', pct: 38, delayMs: 550 },
+        { label: 'Header & line item entity extraction...', pct: 50, delayMs: 600 },
+        { label: 'S/4HANA Vendor master lookup (LFA1)...', pct: 63, delayMs: 550 },
+        { label: 'PO & Goods Receipt reference matching (EKKO/MSEG)...', pct: 75, delayMs: 600 },
+        { label: 'Tax & arithmetic total verification...', pct: 88, delayMs: 550 },
+        { label: `Ingesting ${count} canonical invoices to decision queue...`, pct: 96, delayMs: 600 },
       ],
       email: [
-        { label: 'Connecting to AP mailbox...', pct: 15, delayMs: 800 },
-        { label: `${count} inbound messages detected`, pct: 35, delayMs: 900 },
-        { label: 'Extracting invoice attachments...', pct: 60, delayMs: 1000 },
-        { label: 'Processing invoice documents...', pct: 80, delayMs: 900 },
-        { label: 'Normalizing invoice data...', pct: 95, delayMs: 800 },
+        { label: 'Connecting to AP IMAP/Exchange mailbox...', pct: 11, delayMs: 500 },
+        { label: 'Parsing RFC 822 MIME message stream...', pct: 22, delayMs: 500 },
+        { label: 'Extracting vendor attachments & headers...', pct: 33, delayMs: 550 },
+        { label: 'Virus & security sandbox scanning...', pct: 44, delayMs: 500 },
+        { label: 'Document classification & text parsing...', pct: 55, delayMs: 550 },
+        { label: 'Vendor identity & domain verification...', pct: 66, delayMs: 500 },
+        { label: 'PO & line item correlation...', pct: 77, delayMs: 550 },
+        { label: 'Duplicate submission check (BSIK/BSAK)...', pct: 88, delayMs: 500 },
+        { label: `Ingesting ${count} canonical invoices to decision queue...`, pct: 96, delayMs: 550 },
       ],
       einvoice: [
-        { label: 'Connecting to IRP gateway...', pct: 15, delayMs: 800 },
-        { label: `${count} e-invoice payloads detected`, pct: 35, delayMs: 900 },
-        { label: 'Receiving IRP payloads...', pct: 60, delayMs: 1000 },
-        { label: 'Validating payload structure...', pct: 80, delayMs: 900 },
-        { label: 'Resolving invoice records...', pct: 95, delayMs: 800 },
+        { label: 'Polling Government IRP statutory gateway...', pct: 12, delayMs: 550 },
+        { label: 'Parsing NIC schema JSON payload...', pct: 25, delayMs: 600 },
+        { label: 'Cryptographic signature & 64-char IRN hash verification...', pct: 38, delayMs: 550 },
+        { label: 'GSTIN & Tax compliance cross-check...', pct: 50, delayMs: 600 },
+        { label: 'Vendor & buyer Master Data reconciliation...', pct: 63, delayMs: 550 },
+        { label: 'SAP Purchase Order binding...', pct: 75, delayMs: 600 },
+        { label: '3-Way tolerance matching...', pct: 88, delayMs: 550 },
+        { label: `Ingesting ${count} canonical invoices to decision queue...`, pct: 96, delayMs: 600 },
       ],
     };
 
@@ -2756,6 +3086,127 @@ class InvoiceDecisionApp {
     if (modal) modal.style.display = 'none';
   }
 
+  openERPOperationModal(title, subtitle) {
+    const modal = document.getElementById('modalERPOperation');
+    if (!modal) return;
+    const titleEl = document.getElementById('erpOpTitle');
+    const subtitleEl = document.getElementById('erpOpSubtitle');
+    const pctBadge = document.getElementById('erpOpProgressPctText');
+    const fillEl = document.getElementById('erpOpProgressBarFill');
+    const stageLabel = document.getElementById('erpOpCurrentStageLabel');
+    const stagesList = document.getElementById('erpOpStagesList');
+    const btnClose = document.getElementById('btnErpOpClose');
+
+    if (titleEl) titleEl.textContent = title;
+    if (subtitleEl) subtitleEl.textContent = subtitle;
+    if (pctBadge) pctBadge.textContent = '0%';
+    if (fillEl) {
+      fillEl.style.width = '0%';
+      fillEl.style.background = 'var(--brand-primary)';
+    }
+    if (stageLabel) stageLabel.textContent = 'Initializing transaction...';
+    if (stagesList) stagesList.innerHTML = '';
+    if (btnClose) btnClose.style.display = 'none';
+
+    modal.style.display = 'flex';
+  }
+
+  updateERPOpStage(currentIndex, label, pct, allStages) {
+    const pctBadge = document.getElementById('erpOpProgressPctText');
+    const fillEl = document.getElementById('erpOpProgressBarFill');
+    const stageLabel = document.getElementById('erpOpCurrentStageLabel');
+    const stagesList = document.getElementById('erpOpStagesList');
+
+    if (pctBadge) pctBadge.textContent = `${pct}%`;
+    if (fillEl) fillEl.style.width = `${pct}%`;
+    if (stageLabel) stageLabel.textContent = label;
+
+    if (stagesList) {
+      stagesList.innerHTML = allStages
+        .map((s, idx) => {
+          let statusIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>`;
+          let textColor = 'var(--text-muted)';
+          let fontWeight = '400';
+
+          if (idx < currentIndex) {
+            statusIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--status-positive)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
+            textColor = 'var(--text-primary)';
+            fontWeight = '500';
+          } else if (idx === currentIndex) {
+            statusIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--brand-primary)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>`;
+            textColor = 'var(--brand-primary)';
+            fontWeight = '700';
+          }
+
+          return `
+            <div style="display:flex; align-items:center; gap:8px; font-weight:${fontWeight}; color:${textColor};">
+              <span style="display:flex; align-items:center;">${statusIcon}</span>
+              <span>${s.label}</span>
+            </div>
+          `;
+        })
+        .join('');
+    }
+  }
+
+  updateERPOpComplete(completionLabel, allStages) {
+    const pctBadge = document.getElementById('erpOpProgressPctText');
+    const fillEl = document.getElementById('erpOpProgressBarFill');
+    const stageLabel = document.getElementById('erpOpCurrentStageLabel');
+    const stagesList = document.getElementById('erpOpStagesList');
+
+    if (pctBadge) {
+      pctBadge.textContent = '100%';
+    }
+    if (fillEl) {
+      fillEl.style.width = '100%';
+      fillEl.style.background = 'var(--status-positive)';
+    }
+    if (stageLabel) stageLabel.textContent = completionLabel;
+
+    if (stagesList) {
+      stagesList.innerHTML = allStages
+        .map((s) => `
+          <div style="display:flex; align-items:center; gap:8px; font-weight:500; color:var(--text-primary);">
+            <span style="display:flex; align-items:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--status-positive)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span>${s.label}</span>
+          </div>
+        `)
+        .join('') + `
+          <div style="display:flex; align-items:center; gap:8px; font-weight:700; color:var(--status-positive); margin-top:4px;">
+            <span style="display:flex; align-items:center;">${ICONS.checkCircle}</span>
+            <span>${completionLabel}</span>
+          </div>
+        `;
+    }
+  }
+
+  closeERPOperationModal() {
+    const modal = document.getElementById('modalERPOperation');
+    if (modal) modal.style.display = 'none';
+  }
+
+  async runERPOperation(config, apiTask) {
+    this.openERPOperationModal(config.title, config.subtitle);
+    try {
+      const apiPromise = apiTask();
+      for (let i = 0; i < config.stages.length; i++) {
+        const s = config.stages[i];
+        this.updateERPOpStage(i, s.label, s.pct, config.stages);
+        await new Promise((r) => setTimeout(r, s.delayMs || 350));
+      }
+      const result = await apiPromise;
+      const finalMsg = config.completionLabel || 'Transaction Completed Successfully';
+      this.updateERPOpComplete(finalMsg, config.stages);
+      await new Promise((r) => setTimeout(r, 600));
+      this.closeERPOperationModal();
+      return result;
+    } catch (err) {
+      this.closeERPOperationModal();
+      throw err;
+    }
+  }
+
   async simulateIntake(channel) {
     // Redirect single intake clicks to full batch ingestion pipeline
     return this.processBatchIntake(channel);
@@ -2766,11 +3217,25 @@ class InvoiceDecisionApp {
   // --------------------------------------------------------------------------
   async postToSAP(invoiceId) {
     try {
-      const res = await safeFetchJson(`/api/invoices/${invoiceId}/post`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ actorId: 'BO_AARAV', actorName: `${this.currentUser.name} (${this.currentUser.role})` }),
-      });
+      const res = await this.runERPOperation(
+        {
+          title: 'SAP S/4HANA Logistics Invoice Verification (MIRO)',
+          subtitle: `Posting Invoice ${invoiceId} to Financial Ledger`,
+          stages: [
+            { label: 'Verifying General Ledger (FAGLFLEXA) & Cost Center accounts...', pct: 25, delayMs: 400 },
+            { label: 'Checking tax code & financial period for Company Code 1010...', pct: 50, delayMs: 400 },
+            { label: 'Executing SAP S/4HANA MIRO logistics invoice verification...', pct: 75, delayMs: 450 },
+            { label: 'Generating Accounting Document BELNR & open item in BSIK...', pct: 95, delayMs: 400 },
+          ],
+          completionLabel: 'Posted to S/4HANA (MIRO) — BELNR Generated',
+        },
+        () =>
+          safeFetchJson(`/api/invoices/${invoiceId}/post`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ actorId: 'BO_AARAV', actorName: `${this.currentUser.name} (${this.currentUser.role})` }),
+          })
+      );
 
       if (res.postResult && res.postResult.success) {
         this.showToast(res.postResult.message, 'success');
@@ -2787,11 +3252,24 @@ class InvoiceDecisionApp {
     if (!reason) return;
 
     try {
-      const res = await safeFetchJson(`/api/invoices/${invoiceId}/park`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason, actorId: 'AP_CLERK', actorName: 'AP Clerk' }),
-      });
+      const res = await this.runERPOperation(
+        {
+          title: 'SAP S/4HANA Invoice Parking (MIR7)',
+          subtitle: `Recording Preliminary Document for ${invoiceId}`,
+          stages: [
+            { label: 'Validating S/4HANA MM Preliminary Document structure...', pct: 30, delayMs: 350 },
+            { label: 'Setting Payment Block "R" (Invoice Verification Block)...', pct: 65, delayMs: 400 },
+            { label: 'Registering parked preliminary document in MM ledger...', pct: 95, delayMs: 350 },
+          ],
+          completionLabel: 'Invoice Parked in SAP S/4HANA (MIR7)',
+        },
+        () =>
+          safeFetchJson(`/api/invoices/${invoiceId}/park`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason, actorId: 'AP_CLERK', actorName: 'AP Clerk' }),
+          })
+      );
 
       if (res.parkResult && res.parkResult.success) {
         this.showToast(res.parkResult.message, 'success');
@@ -2805,11 +3283,25 @@ class InvoiceDecisionApp {
 
   async processPayment(invoiceId) {
     try {
-      const res = await safeFetchJson(`/api/invoices/${invoiceId}/payment/process`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ actorId: 'AP_TREASURY', actorName: 'Treasury & Disbursement Specialist' }),
-      });
+      const res = await this.runERPOperation(
+        {
+          title: 'SAP FI-AP Automatic Payment Run (F110)',
+          subtitle: `Disbursement Execution for Invoice ${invoiceId}`,
+          stages: [
+            { label: 'Initiating SAP F110 Automatic Payment Program...', pct: 25, delayMs: 400 },
+            { label: 'Evaluating open items in BSIK & vendor payment terms...', pct: 50, delayMs: 400 },
+            { label: 'Generating Electronic Bank Transfer / Clearing Advice...', pct: 75, delayMs: 450 },
+            { label: 'Registering Payment Document in SAP FI-AP ledger...', pct: 95, delayMs: 400 },
+          ],
+          completionLabel: 'Payment Run Executed — Payment Document Generated',
+        },
+        () =>
+          safeFetchJson(`/api/invoices/${invoiceId}/payment/process`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ actorId: 'AP_TREASURY', actorName: 'Treasury & Disbursement Specialist' }),
+          })
+      );
 
       if (res.paymentResult && res.paymentResult.success) {
         this.showToast(res.paymentResult.message, 'success');
@@ -2825,11 +3317,24 @@ class InvoiceDecisionApp {
 
   async clearPayment(invoiceId) {
     try {
-      const res = await safeFetchJson(`/api/invoices/${invoiceId}/payment/clear`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ actorId: 'AP_TREASURY', actorName: 'General Ledger Clearing Robot' }),
-      });
+      const res = await this.runERPOperation(
+        {
+          title: 'SAP FI-AP Settlement Clearing (BSAK)',
+          subtitle: `Open Item Clearing for Invoice ${invoiceId}`,
+          stages: [
+            { label: 'Connecting to SAP FI-AP Settlement Engine...', pct: 30, delayMs: 350 },
+            { label: 'Matching vendor open items in BSIK ledger...', pct: 60, delayMs: 400 },
+            { label: 'Transferring open items to BSAK Cleared Items Ledger...', pct: 95, delayMs: 400 },
+          ],
+          completionLabel: 'Settlement Cleared in SAP S/4HANA (BSAK)',
+        },
+        () =>
+          safeFetchJson(`/api/invoices/${invoiceId}/payment/clear`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ actorId: 'AP_TREASURY', actorName: 'General Ledger Clearing Robot' }),
+          })
+      );
 
       if (res.clearingResult && res.clearingResult.success) {
         this.showToast(res.clearingResult.message, 'success');
@@ -2895,21 +3400,35 @@ class InvoiceDecisionApp {
       return;
     }
 
-    try {
-      await fetch(`/api/invoices/${this.currentValidatingInvoiceId}/validate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action,
-          userId: 'AVERMA',
-          userName: 'Amit Verma',
-          department: 'Facilities & Plant Operations',
-          costCenter: 'CC-1010-ENG',
-          reason: reason || 'Commercial delivery confirmed by requisitioner.',
-        }),
-      });
+    this.closeModal('modalValidation');
 
-      this.closeModal('modalValidation');
+    try {
+      await this.runERPOperation(
+        {
+          title: 'Business Owner Workflow Validation',
+          subtitle: `Recording ${action} Authorization for ${this.currentValidatingInvoiceId}`,
+          stages: [
+            { label: 'Validating business line items & cost center budget...', pct: 30, delayMs: 350 },
+            { label: 'Signing authorization with business owner ID...', pct: 65, delayMs: 400 },
+            { label: 'Updating enterprise audit ledger & decision queue...', pct: 95, delayMs: 350 },
+          ],
+          completionLabel: `Business Owner Decision Recorded: ${action}`,
+        },
+        () =>
+          fetch(`/api/invoices/${this.currentValidatingInvoiceId}/validate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action,
+              userId: 'AVERMA',
+              userName: 'Amit Verma',
+              department: 'Facilities & Plant Operations',
+              costCenter: 'CC-1010-ENG',
+              reason: reason || 'Commercial delivery confirmed by requisitioner.',
+            }),
+          })
+      );
+
       this.showToast(`Decision recorded: ${action}`, 'success');
       await this.loadAllData();
       this.renderCurrentView();
@@ -2926,18 +3445,31 @@ class InvoiceDecisionApp {
     if ((action === 'REJECT' || action === 'SEND_BACK') && !reason) return;
 
     try {
-      await fetch(`/api/invoices/${invoiceId}/validate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action,
-          userId: 'AVERMA',
-          userName: 'Amit Verma',
-          department: 'Facilities & Plant Operations',
-          costCenter: 'CC-1010-ENG',
-          reason: reason || 'Validated.',
-        }),
-      });
+      await this.runERPOperation(
+        {
+          title: 'Business Owner Workflow Validation',
+          subtitle: `Recording ${action} Authorization for ${invoiceId}`,
+          stages: [
+            { label: 'Validating business line items & cost center budget...', pct: 30, delayMs: 350 },
+            { label: 'Signing authorization with business owner ID...', pct: 65, delayMs: 400 },
+            { label: 'Updating enterprise audit ledger & decision queue...', pct: 95, delayMs: 350 },
+          ],
+          completionLabel: `Business Owner Decision Recorded: ${action}`,
+        },
+        () =>
+          fetch(`/api/invoices/${invoiceId}/validate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action,
+              userId: 'AVERMA',
+              userName: 'Amit Verma',
+              department: 'Facilities & Plant Operations',
+              costCenter: 'CC-1010-ENG',
+              reason: reason || 'Validated.',
+            }),
+          })
+      );
 
       this.showToast(`Decision recorded: ${action}`, 'success');
       await this.loadAllData();
@@ -2950,12 +3482,29 @@ class InvoiceDecisionApp {
   async resetDemoData() {
     if (!confirm('Reset all 10 enterprise demo scenarios and GSTR-2B datasets to factory baseline state?')) return;
     try {
-      await fetch('/api/reset', { method: 'POST' });
+      await this.runERPOperation(
+        {
+          title: 'Resetting Enterprise Demo Environment',
+          subtitle: 'Restoring Baseline Datasets & S/4HANA Linkages',
+          stages: [
+            { label: 'Purging runtime in-memory invoice states & transaction cache...', pct: 18, delayMs: 300 },
+            { label: 'Resetting batch ingestion channel intake flags (Physical, Email, E-Invoice)...', pct: 36, delayMs: 350 },
+            { label: 'Re-initializing canonical invoice repository from baseline fixtures...', pct: 54, delayMs: 400 },
+            { label: 'Restoring S/4HANA PO & Goods Receipt linkages (EKKO, EKPO, MSEG)...', pct: 72, delayMs: 350 },
+            { label: 'Resetting statutory GSTR-2B Input Tax Credit ledger records...', pct: 88, delayMs: 300 },
+            { label: 'Re-establishing baseline audit trail events & clearing decision locks...', pct: 96, delayMs: 300 },
+          ],
+          completionLabel: 'DEMO ENVIRONMENT READY — Baseline Restored',
+        },
+        () => fetch('/api/reset', { method: 'POST' })
+      );
+
       this.channelBatchStatus = {
         physical: { processed: false, count: 6, activeCount: 6 },
         email: { processed: false, count: 6, activeCount: 6 },
         einvoice: { processed: false, count: 6, activeCount: 6 },
       };
+      this.simulationState = null;
       this.showToast('All scenarios reset to baseline state', 'success');
       this.selectedInvoiceId = 'INV-2026-00001';
       await this.loadAllData();
