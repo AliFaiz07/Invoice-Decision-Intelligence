@@ -144,9 +144,18 @@ body {
 .brand-badge {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   text-decoration: none;
   color: var(--text-primary);
+}
+
+.brand-logo-img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  flex-shrink: 0;
+  display: block;
+  filter: drop-shadow(0 2px 4px rgba(0, 112, 242, 0.18));
 }
 
 .sap-logo-icon {
@@ -2773,7 +2782,15 @@ body {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 10px;
+  gap: 12px;
+}
+
+.login-brand-logo {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 4px 12px rgba(0, 112, 242, 0.25));
 }
 
 .login-sap-badge {
