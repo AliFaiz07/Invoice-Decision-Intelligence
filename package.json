@@ -4,7 +4,7 @@
   "description": "Invoice Decision Intelligence Layer on SAP BTP and S/4HANA",
   "main": "dist/server.js",
   "scripts": {
-    "build": "tsc && xcopy /E /I /Y src\\public dist\\public",
+    "build": "tsc && node -e \"require('fs').cpSync('src/public', 'dist/public', {recursive: true})\"",
     "start": "node dist/server.js",
     "dev": "ts-node src/server.ts",
     "test": "node --test dist/tests/**/*.test.js",
@@ -22,6 +22,9 @@
   ],
   "author": "Enterprise Architecture Team",
   "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",

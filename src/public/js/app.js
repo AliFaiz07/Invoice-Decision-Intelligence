@@ -1316,13 +1316,22 @@ class InvoiceDecisionApp {
     const pathname = (window.location.pathname || '').toLowerCase();
     const hash = (window.location.hash || '').toLowerCase();
 
-    if (pathname === '/login' || pathname.startsWith('/login') || hash.includes('login')) {
+    // Strict route detection: only navigate away from landing if explicitly requested
+    if (pathname === '/login' || hash === '#login' || hash === '#/login') {
       return '/login';
     }
-    if (pathname === '/app' || pathname.startsWith('/app') || hash.includes('app')) {
+    if (pathname === '/app' || hash === '#app' || hash === '#/app') {
       return '/app';
     }
+    // Default ALWAYS to landing page — never auto-redirect to app shell
     return '/landing';
+  }
+
+  enterWorkspace(targetView = 'landing') {
+    this.navigateToRoute('/app', true);
+    if (targetView && targetView !== 'landing') {
+      this.switchView(targetView);
+    }
   }
 
   applyInitialRoute() {
@@ -1374,10 +1383,17 @@ class InvoiceDecisionApp {
       window.scrollTo({ top: 0, behavior: 'instant' });
     }
 
-    if (pushHistory && window.location.pathname !== cleanRoute) {
-      window.history.pushState({ route: cleanRoute }, '', cleanRoute);
-    } else if (!pushHistory && (window.location.pathname === '/' || window.location.pathname === '')) {
-      window.history.replaceState({ route: cleanRoute }, '', cleanRoute);
+    try {
+      const isEmbedded = window.self !== window.top;
+      if (!isEmbedded) {
+        if (pushHistory && window.location.pathname !== cleanRoute) {
+          window.history.pushState({ route: cleanRoute }, '', cleanRoute);
+        } else if (!pushHistory && (window.location.pathname === '/' || window.location.pathname === '')) {
+          window.history.replaceState({ route: cleanRoute }, '', cleanRoute);
+        }
+      }
+    } catch (e) {
+      // Ignore cross-origin frame access exceptions
     }
   }
 

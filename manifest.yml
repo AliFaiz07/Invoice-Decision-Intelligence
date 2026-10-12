@@ -1,0 +1,12 @@
+---
+applications:
+  - name: sap-invoice-decision-intelligence
+    memory: 512M
+    disk_quota: 1024M
+    buildpacks:
+      - nodejs_buildpack
+    command: npm start
+    random-route: true
+    env:
+      NODE_ENV: production
+      DEMO_MODE: "true"
